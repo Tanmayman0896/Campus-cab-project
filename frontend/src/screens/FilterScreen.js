@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { requestAPI } from '../services/api';
 
 const FilterScreen = () => {
   const navigation = useNavigation();
@@ -17,6 +19,39 @@ const FilterScreen = () => {
     date: false,
     genderPreference: false,
   });
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const fetchRequests = async () => {
+    try {
+      setLoading(true);
+      const response = await requestAPI.getAllRequests({
+        limit: 10,  // Show limited requests on filter screen
+        page: 1
+      });
+      
+      console.log('Filter screen - Fetched requests:', response.data);
+      // Handle both response shapes: response.data.requests or response.data directly
+      const requests = response.data?.requests || response.data || [];
+      setRequests(Array.isArray(requests) ? requests : []);
+    } catch (error) {
+      console.error('Error fetching requests on filter screen:', error);
+      setRequests([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchRequests();
+  };
 
   const handleBack = () => {
     navigation.goBack();
@@ -30,8 +65,26 @@ const FilterScreen = () => {
   };
 
   const applyFilters = () => {
-    // Apply filters and go back
+    // TODO: Apply filters to the requests
+    // For now, just go back with selected filters
+    console.log('Applied filters:', selectedFilters);
     navigation.goBack();
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+  };
+
+  const formatTime = (timeString) => {
+    const [hours, minutes] = timeString.split(':');
+    const date = new Date();
+    date.setHours(hours, minutes);
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
   };
 
   const clearFilters = () => {
@@ -63,7 +116,17 @@ const FilterScreen = () => {
         </View>
       </View>
 
-      <ScrollView style={styles.filtersList} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.filtersList} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#FFA500"
+          />
+        }
+      >
         <TouchableOpacity 
           style={[styles.filterButton, selectedFilters.location && styles.filterButtonActive]}
           onPress={() => toggleFilter('location')}
@@ -92,39 +155,41 @@ const FilterScreen = () => {
         </TouchableOpacity>
 
         <View style={styles.remainingRequests}>
-          <View style={styles.requestCard}>
-            <View style={styles.requestHeader}>
-              <View style={styles.avatarContainer}>
-                <Ionicons name="person" size={24} color="#FFF" />
-              </View>
-              <View style={styles.requestInfo}>
-                <Text style={styles.requestName}>Salaj Singh Bisht</Text>
-                <Text style={styles.requestVehicle}>Traveller</Text>
-                <Text style={styles.requestRoute}>Route: MUJ - Delhi</Text>
-                <Text style={styles.requestDetails}>
-                  Date: 01-11-2025    Time: 9:00 PM
-                </Text>
-                <Text style={styles.requestMobile}>Mobile: 9696969696</Text>
-              </View>
+          <Text style={styles.sectionTitle}>Available Requests</Text>
+          {loading ? (
+            <View style={styles.centerContent}>
+              <Text style={styles.loadingText}>Loading requests...</Text>
             </View>
-          </View>
-
-          <View style={styles.requestCard}>
-            <View style={styles.requestHeader}>
-              <View style={styles.avatarContainer}>
-                <Ionicons name="person" size={24} color="#FFF" />
-              </View>
-              <View style={styles.requestInfo}>
-                <Text style={styles.requestName}>Tanmay</Text>
-                <Text style={styles.requestVehicle}>Traveller</Text>
-                <Text style={styles.requestRoute}>Route: MUJ - Delhi</Text>
-                <Text style={styles.requestDetails}>
-                  Date: 01-11-2025    Time: 9:00 PM
-                </Text>
-                <Text style={styles.requestMobile}>Mobile: 9696969696</Text>
-              </View>
+          ) : requests.length === 0 ? (
+            <View style={styles.centerContent}>
+              <Text style={styles.emptyText}>No requests found</Text>
             </View>
-          </View>
+          ) : (
+            requests.map((request) => (
+              <View key={request.id} style={styles.requestCard}>
+                <View style={styles.requestHeader}>
+                  <View style={styles.avatarContainer}>
+                    <Ionicons name="person" size={24} color="#FFF" />
+                  </View>
+                  <View style={styles.requestInfo}>
+                    <Text style={styles.requestName}>
+                      {request.user?.name || 'Anonymous User'}
+                    </Text>
+                    <Text style={styles.requestVehicle}>{request.carType}</Text>
+                    <Text style={styles.requestRoute}>
+                      Route: {request.from} → {request.to}
+                    </Text>
+                    <Text style={styles.requestDetails}>
+                      Date: {formatDate(request.date)}    Time: {formatTime(request.time)}
+                    </Text>
+                    <Text style={styles.requestMobile}>
+                      Seats: {request.currentOccupancy}/{request.maxPersons}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
 
@@ -223,6 +288,24 @@ const styles = StyleSheet.create({
   },
   remainingRequests: {
     marginTop: 30,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: 15,
+  },
+  centerContent: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#888',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#888',
   },
   requestCard: {
     backgroundColor: '#1a1a1a',

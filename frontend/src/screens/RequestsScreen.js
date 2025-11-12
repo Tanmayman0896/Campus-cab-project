@@ -40,7 +40,9 @@ const RequestsScreen = () => {
       });
       
       console.log('Fetched requests:', response.data);
-      setRequests(response.data.requests || []);
+      // Handle both response shapes: response.data.requests or response.data directly
+      const requests = response.data?.requests || response.data || [];
+      setRequests(Array.isArray(requests) ? requests : []);
     } catch (error) {
       console.error('Error fetching requests:', error);
       setRequests([]);

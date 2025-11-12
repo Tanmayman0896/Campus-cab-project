@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// Configure the API base URL - Backend is running on port 3001
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://10.63.209.138:3001/api/v1';
+// Configure the API base URL - Backend is running on port 3003
+// Try localhost first, fallback to network IP if needed  
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api/v1';
 
 console.log('🚀 API Base URL:', API_BASE_URL);
 

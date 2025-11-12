@@ -27,8 +27,10 @@ const MyRidesScreen = () => {
     try {
       setLoading(true);
       const response = await requestAPI.getUserRequests();
-      setUserRequests(response.data.requests || []);
       console.log('User requests fetched:', response.data);
+      // Handle both response shapes: response.data.requests or response.data directly
+      const requests = response.data?.requests || response.data || [];
+      setUserRequests(Array.isArray(requests) ? requests : []);
     } catch (error) {
       console.error('Error fetching user requests:', error);
       setUserRequests([]);
