@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Campus Cab",
+    "slug": "campus-cab",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "main": "index.js",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#000000"
+      }
+    },
+    "web": {
+      "bundler": "webpack"
+    },
+    "plugins": [],
+    "experiments": {
+      "tsconfigPaths": true
+    }
+  }
+}
