@@ -32,8 +32,8 @@ npx prisma generate
 # Run database migrations
 npx prisma migrate dev
 
-# Add mock data (optional)
-node scripts/insertMockData.js
+# Add test user data
+node scripts/createTestUser.js
 
 # Start backend server
 npm start
@@ -68,8 +68,14 @@ REQUEST_TIMEOUT=30000
 
 If running on different devices, update `frontend/src/services/api.js`:
 ```javascript
-// Replace YOUR_COMPUTER_IP with your actual IP address
-const API_BASE_URL = 'http://YOUR_COMPUTER_IP:3001/api/v1';
+// Current network configuration (update IP if needed)
+const getApiBaseUrl = () => {
+  if (Platform.OS === 'web') {
+    return 'http://localhost:3001/api/v1';
+  } else {
+    return 'http://10.63.209.138:3001/api/v1'; // Update this IP if needed
+  }
+};
 ```
 
 Find your IP address:
@@ -95,15 +101,23 @@ Find your IP address:
 ## Verification
 
 ### Backend Running:
-Visit: http://localhost:3001/api/v1/health
+Visit: http://localhost:3001/api/v1/requests/all
 
 Should return:
 ```json
 {
   "success": true,
-  "message": "API is healthy"
+  "data": {
+    "requests": [],
+    "total": 0
+  }
 }
 ```
+
+### Profile Features Working:
+- User profile displays real data from database
+- Profile image upload functionality (base64 storage)
+- Edit profile with data persistence
 
 ### Frontend Running:
 - Mobile: Scan QR code with Expo Go
@@ -112,6 +126,9 @@ Should return:
 ## Common Issues & Solutions
 
 1. **"Module not found"**: Run `npm install` in the respective directory
-2. **"Port already in use"**: Change PORT in .env file
+2. **"Port already in use"**: Change PORT in .env file  
 3. **"Network Error"**: Check if backend is running and IP address is correct
 4. **Database connection failed**: Verify DATABASE_URL in .env file
+5. **"Campus Cab User" showing**: Backend connection issue - check network and server status
+6. **Profile image not uploading**: Check expo-image-picker permissions and backend multer config
+7. **App crashes on image select**: Ensure expo-image-picker@~16.0.6 is installed

@@ -52,6 +52,7 @@ npm install
 - helmet@^7.2.0
 - moment@^2.30.1
 - morgan@^1.10.0
+- multer@^1.4.5-lts.1
 - node-cron@^3.0.3
 
 #### Dev Dependencies:
@@ -90,10 +91,16 @@ npx prisma migrate dev
 npx prisma studio
 ```
 
-#### Add Mock Data to Database
+#### Add Test User to Database
 ```bash
-node scripts/insertMockData.js
+node scripts/createTestUser.js
 ```
+
+#### Database Schema
+The application uses PostgreSQL with Prisma ORM. Key tables:
+- **Users**: Profile information, including base64 profile images
+- **Requests**: Ride requests with location, date, time details
+- **Votes**: User votes on ride requests (accept/reject)
 
 #### Start Backend Server
 ```bash
@@ -124,6 +131,7 @@ npm install
 - @react-navigation/stack@^6.4.1
 - axios@^1.13.2
 - expo@~52.0.0
+- expo-image-picker@~16.0.6
 - expo-status-bar@~2.0.0
 - react@18.3.1
 - react-dom@18.3.1
@@ -161,8 +169,15 @@ If running on different devices/networks, update the API base URL:
 
 **Frontend: `frontend/src/services/api.js`**
 ```javascript
-// Replace with your computer's IP address
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://YOUR_COMPUTER_IP:3001/api/v1';
+// Current network configuration (update IP if needed)
+const getApiBaseUrl = () => {
+  if (Platform.OS === 'web') {
+    return 'http://localhost:3001/api/v1';
+  } else {
+    // Replace with your computer's current network IP
+    return 'http://10.63.209.138:3001/api/v1';
+  }
+};
 ```
 
 To find your computer's IP address:
@@ -192,21 +207,26 @@ If the mobile app can't connect to the backend:
 Campus-Cab/
 ├── Backend/
 │   ├── src/
-│   │   ├── controllers/
-│   │   ├── routes/
-│   │   ├── config/
-│   │   └── server.js
-│   ├── scripts/
-│   ├── prisma/
+│   │   ├── controllers/     # API endpoint handlers
+│   │   ├── middleware/      # Upload, validation middleware
+│   │   ├── routes/          # API route definitions
+│   │   ├── config/          # Database and app configuration
+│   │   └── server.js        # Main server file
+│   ├── scripts/            # Database setup scripts
+│   ├── prisma/            # Database schema and migrations
+│   ├── uploads/           # File upload directory (not used for images)
 │   ├── package.json
 │   └── .env
 ├── frontend/
 │   ├── src/
-│   │   ├── screens/
-│   │   ├── components/
-│   │   └── services/
+│   │   ├── screens/        # App screens (Profile, Requests, etc.)
+│   │   ├── components/     # Reusable UI components
+│   │   └── services/       # API client and utilities
+│   ├── assets/            # Static assets
 │   ├── package.json
 │   └── App.js
+├── SETUP_GUIDE.md
+└── QUICK_START.md
 ```
 
 ## Available Scripts
@@ -232,10 +252,14 @@ The app uses mock authentication. Default user:
 ## Features
 
 - **Requests Screen**: View all available ride requests
-- **My Rides Screen**: View your own ride requests
+- **My Rides Screen**: View your own ride requests  
+- **Profile Screen**: View and edit user profile with image upload
 - **Filter Screen**: Filter rides by various criteria
 - **Create Request**: Add new ride requests
 - **Vote System**: Accept/reject ride requests from others
+- **Profile Pictures**: Upload and display custom profile images (stored as base64 in database)
+- **Real-time Data**: Dynamic data fetching from PostgreSQL database
+- **Responsive UI**: Clean interface with proper error handling
 
 ## Support
 
