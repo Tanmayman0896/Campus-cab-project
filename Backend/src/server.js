@@ -53,6 +53,9 @@ class RideShareServer {
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+    // Serve static files for uploaded images
+    this.app.use('/uploads', express.static('uploads'));
+
     // Request timeout
     this.app.use((req, res, next) => {
       req.setTimeout(30000);

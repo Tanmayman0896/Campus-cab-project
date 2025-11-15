@@ -8,43 +8,104 @@ import {
   ScrollView,
   StatusBar,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { requestAPI } from '../services/api';
 
 const MyRidesScreen = () => {
   const navigation = useNavigation();
   const [userRequests, setUserRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch user's requests when component mounts
+  // Debug state changes
   useEffect(() => {
-    fetchUserRequests();
-  }, []);
+    console.log('📍 MyRidesScreen state changed:');
+    console.log('  - userRequests.length:', userRequests.length);
+    console.log('  - loading:', loading);
+    console.log('  - userRequests:', userRequests);
+  }, [userRequests, loading]);
+
+  // Fetch user's requests when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchUserRequests();
+    }, [])
+  );
 
   const fetchUserRequests = async () => {
     try {
+      console.log('🔄 Starting to fetch user requests...');
       setLoading(true);
+      
+      // Test connectivity
+      console.log('🌐 Testing connectivity for user requests...');
+      await requestAPI.testConnection();
+      
       const response = await requestAPI.getUserRequests();
-      console.log('User requests fetched:', response.data);
-      // Handle both response shapes: response.data.requests or response.data directly
-      const requests = response.data?.requests || response.data || [];
-      setUserRequests(Array.isArray(requests) ? requests : []);
+      
+      console.log('📡 Raw User API Response:', JSON.stringify(response, null, 2));
+      console.log('📊 User Response Data Structure:');
+      console.log('  - response type:', typeof response);
+      console.log('  - response.data type:', typeof response.data);
+      console.log('  - response.data:', JSON.stringify(response.data, null, 2));
+      
+      // The API returns: { success: true, data: { requests: [...] } }
+      // Axios puts this in response.data, so we need response.data.data.requests
+      const apiData = response.data?.data;
+      console.log('  - apiData:', apiData);
+      console.log('  - apiData.requests type:', typeof apiData?.requests);
+      console.log('  - apiData.requests:', apiData?.requests);
+      
+      if (apiData && Array.isArray(apiData.requests)) {
+        console.log('  - user requests array length:', apiData.requests.length);
+        apiData.requests.forEach((req, index) => {
+          console.log(`  - User Request ${index}:`, {
+            id: req.id,
+            from: req.from,
+            to: req.to,
+            date: req.date,
+            userId: req.userId,
+            status: req.status
+          });
+        });
+      }
+      
+      // Extract requests array from the correct nested structure
+      const requests = apiData?.requests || [];
+      console.log('🎯 Final user requests to display:', requests);
+      console.log('📈 Number of user requests:', Array.isArray(requests) ? requests.length : 'not an array');
+      
+      if (Array.isArray(requests)) {
+        console.log('✅ Setting user requests state with', requests.length, 'items');
+        setUserRequests(requests);
+      } else {
+        console.log('❌ User requests is not an array, setting empty array');
+        setUserRequests([]);
+      }
     } catch (error) {
-      console.error('Error fetching user requests:', error);
+      console.error('❌ Error fetching user requests:', error);
+      console.error('❌ User requests error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
       setUserRequests([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchUserRequests();
   };
 
   const handleNotificationPress = () => {
     navigation.navigate('Notifications');
-  };
-
-  const handleCreateRequest = () => {
-    navigation.navigate('CreateRequest');
   };
 
   const handleCall = (passenger) => {
@@ -65,7 +126,17 @@ const MyRidesScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.requestsList} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.requestsList} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#FFA500"
+          />
+        }
+      >
         {loading ? (
           <View style={styles.centerContent}>
             <Text style={styles.loadingText}>Loading your rides...</Text>
@@ -99,10 +170,6 @@ const MyRidesScreen = () => {
           ))
         )}
       </ScrollView>
-
-      <TouchableOpacity style={styles.createButton} onPress={handleCreateRequest}>
-        <Ionicons name="add" size={24} color="#FFF" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -199,25 +266,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#000',
     fontWeight: 'bold',
-  },
-  createButton: {
-    position: 'absolute',
-    bottom: 80,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFA500',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
 });
 

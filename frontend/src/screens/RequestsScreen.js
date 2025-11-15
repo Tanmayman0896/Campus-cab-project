@@ -23,28 +23,82 @@ const RequestsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch requests when screen is focused
+  // Debug state changes
+  useEffect(() => {
+    console.log('📍 RequestsScreen state changed:');
+    console.log('  - requests.length:', requests.length);
+    console.log('  - loading:', loading);
+    console.log('  - requests:', requests);
+  }, [requests, loading]);
+
+  // Fetch requests when screen is focused or search text changes
   useFocusEffect(
     React.useCallback(() => {
       fetchRequests();
-    }, [])
+    }, [searchText])
   );
 
   const fetchRequests = async () => {
     try {
+      console.log('🔄 Starting to fetch requests...');
       setLoading(true);
+      
+      // Add network connectivity test
+      console.log('🌐 Testing connectivity to backend...');
+      await requestAPI.testConnection();
+      
       const response = await requestAPI.getAllRequests({
         search: searchText || undefined,
         limit: 20,
         page: 1
       });
       
-      console.log('Fetched requests:', response.data);
-      // Handle both response shapes: response.data.requests or response.data directly
-      const requests = response.data?.requests || response.data || [];
-      setRequests(Array.isArray(requests) ? requests : []);
+      console.log('📡 Raw API Response:', JSON.stringify(response, null, 2));
+      console.log('📊 Response Data Structure:');
+      console.log('  - response type:', typeof response);
+      console.log('  - response.data type:', typeof response.data);
+      console.log('  - response.data:', JSON.stringify(response.data, null, 2));
+      
+      // The API returns: { success: true, data: { requests: [...], pagination: {...} } }
+      // Axios puts this in response.data, so we need response.data.data.requests
+      const apiData = response.data?.data;
+      console.log('  - apiData:', apiData);
+      console.log('  - apiData.requests type:', typeof apiData?.requests);
+      console.log('  - apiData.requests:', apiData?.requests);
+      
+      if (apiData && Array.isArray(apiData.requests)) {
+        console.log('  - requests array length:', apiData.requests.length);
+        apiData.requests.forEach((req, index) => {
+          console.log(`  - Request ${index}:`, {
+            id: req.id,
+            from: req.from,
+            to: req.to,
+            date: req.date,
+            userId: req.userId
+          });
+        });
+      }
+      
+      // Extract requests array from the correct nested structure
+      const requests = apiData?.requests || [];
+      console.log('🎯 Final requests to display:', requests);
+      console.log('📏 Number of requests:', Array.isArray(requests) ? requests.length : 'not an array');
+      
+      if (Array.isArray(requests)) {
+        console.log('✅ Setting requests state with', requests.length, 'items');
+        setRequests(requests);
+      } else {
+        console.log('❌ Requests is not an array, setting empty array');
+        setRequests([]);
+      }
     } catch (error) {
-      console.error('Error fetching requests:', error);
+      console.error('❌ Error fetching requests:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
       setRequests([]);
     } finally {
       setLoading(false);
@@ -146,20 +200,33 @@ const RequestsScreen = () => {
           />
         }
       >
-        {loading ? (
-          <View style={styles.centerContent}>
-            <Text style={styles.loadingText}>Loading requests...</Text>
-          </View>
-        ) : requests.length === 0 ? (
-          <View style={styles.centerContent}>
-            <Ionicons name="car" size={50} color="#888" />
-            <Text style={styles.emptyText}>No requests found</Text>
-            <Text style={styles.emptySubText}>
-              {searchText ? 'Try adjusting your search' : 'Be the first to create a request!'}
-            </Text>
-          </View>
-        ) : (
-          requests.map((request) => (
+        {(() => {
+          console.log('🎨 RENDERING - Current state:');
+          console.log('  - loading:', loading);
+          console.log('  - requests.length:', requests.length);
+          console.log('  - requests array:', requests);
+          
+          if (loading) {
+            console.log('🔄 Rendering loading state');
+            return (
+              <View style={styles.centerContent}>
+                <Text style={styles.loadingText}>Loading requests...</Text>
+              </View>
+            );
+          } else if (requests.length === 0) {
+            console.log('📭 Rendering empty state');
+            return (
+              <View style={styles.centerContent}>
+                <Ionicons name="car" size={50} color="#888" />
+                <Text style={styles.emptyText}>No requests found</Text>
+                <Text style={styles.emptySubText}>
+                  {searchText ? 'Try adjusting your search' : 'Be the first to create a request!'}
+                </Text>
+              </View>
+            );
+          } else {
+            console.log('📋 Rendering', requests.length, 'requests');
+            return requests.map((request) => (
             <View key={request.id} style={styles.requestCard}>
               <View style={styles.requestHeader}>
                 <View style={styles.avatarContainer}>
@@ -204,8 +271,9 @@ const RequestsScreen = () => {
                 </TouchableOpacity>
               </View>
             </View>
-          ))
-        )}
+          ));
+          }
+        })()}
       </ScrollView>
 
       <View style={styles.bottomActions}>

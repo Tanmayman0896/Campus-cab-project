@@ -11,9 +11,11 @@ import {
   Alert,
   TextInput,
   Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { userAPI } from '../services/api';
 
 const ProfileScreen = () => {
@@ -35,35 +37,86 @@ const ProfileScreen = () => {
   const [loading, setLoading] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editForm, setEditForm] = useState({});
+  const [imageUploading, setImageUploading] = useState(false);
 
   // Fetch user profile when screen is focused
   useFocusEffect(
     React.useCallback(() => {
+      console.log('📱 ProfileScreen focused - fetching latest data...');
+      testBackendConnection();
       fetchUserProfile();
       fetchUserStats();
     }, [])
   );
 
+  const testBackendConnection = async () => {
+    try {
+      console.log('🌐 Testing backend connection for ProfileScreen...');
+      const result = await userAPI.testConnection?.() || { success: false };
+      if (result.success) {
+        console.log('✅ Backend connection successful for ProfileScreen');
+      } else {
+        console.log('❌ Backend connection failed for ProfileScreen');
+      }
+    } catch (error) {
+      console.log('❌ ProfileScreen connection test error:', error.message);
+    }
+  };
+
   const fetchUserProfile = async () => {
     try {
+      console.log('🔄 Fetching user profile...');
       setLoading(true);
       const response = await userAPI.getProfile();
-      console.log('User profile:', response.data);
+      console.log('📱 User profile response:', response.data);
       
-      const userData = response.data.user || {};
-      setUserInfo({
+      // Backend returns user data directly in response.data
+      const userData = response.data || {};
+      console.log('👤 Processing user data:', userData);
+      
+      const profileData = {
         name: userData.name || 'Campus Cab User',
         registrationNo: userData.registrationNo || 'N/A',
         email: userData.email || 'user@campus.edu',
         course: userData.course || 'BTech',
-        branch: userData.branch || 'Computer Science Engineering',
+        branch: userData.gender || 'Not specified',
         phone: userData.phone || 'Not provided',
+        year: userData.year || 1,
+        gender: userData.gender || 'Not specified',
+        profileImage: userData.profileImage || null,
         createdAt: userData.createdAt || new Date().toISOString(),
+      };
+      
+      console.log('✅ Setting profile data:', profileData);
+      console.log('🖼️ Profile image from backend:', userData.profileImage);
+      console.log('🖼️ Profile image constructed URL:', userData.profileImage ? getImageUrl(userData.profileImage) : 'No image');
+      setUserInfo(profileData);
+      setEditForm({
+        name: userData.name,
+        phone: userData.phone,
+        course: userData.course,
+        year: userData.year,
+        gender: userData.gender
       });
-      setEditForm(userData);
     } catch (error) {
-      console.error('Error fetching user profile:', error);
-      // Keep default values if API fails
+      console.error('❌ Error fetching user profile:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      // Set default values on error
+      setUserInfo({
+        name: 'Campus Cab User',
+        registrationNo: 'N/A',
+        email: 'user@campus.edu',
+        course: 'BTech',
+        branch: 'Computer Science Engineering',
+        phone: 'Not provided',
+        year: 1,
+        gender: 'Not specified',
+        createdAt: new Date().toISOString(),
+      });
     } finally {
       setLoading(false);
     }
@@ -71,36 +124,115 @@ const ProfileScreen = () => {
 
   const fetchUserStats = async () => {
     try {
+      console.log('🔄 Fetching user statistics...');
+      
+      // First test connection
+      console.log('🌐 Testing connection before fetching stats...');
+      const connectionResult = await userAPI.testConnection();
+      if (!connectionResult.success) {
+        throw new Error('Backend connection failed');
+      }
+      console.log('✅ Connection successful, proceeding with stats fetch...');
+      
       const response = await userAPI.getUserStats();
-      console.log('User stats:', response.data);
-      setUserStats(response.data.stats || {
+      console.log('📊 Raw user stats response:', JSON.stringify(response, null, 2));
+      console.log('📊 Response status:', response.status);
+      console.log('📊 Response data type:', typeof response.data);
+      
+      // Backend returns: { success: true, data: { requests: { total, active, completed }, votes: { total, accepted, rejected } } }
+      const stats = response.data;
+      console.log('📈 Raw stats object:', stats);
+      console.log('📈 Stats.requests:', stats.requests);
+      console.log('📈 Stats.votes:', stats.votes);
+      
+      const userStatsData = {
+        totalRequests: stats.requests?.total || 0,
+        completedRides: stats.requests?.completed || 0,
+        rating: 'N/A', // Rating system not implemented yet
+        activeRequests: stats.requests?.active || 0,
+        totalVotes: stats.votes?.total || 0,
+        acceptedVotes: stats.votes?.accepted || 0,
+        rejectedVotes: stats.votes?.rejected || 0,
+      };
+      
+      console.log('📊 Final processed user stats:', userStatsData);
+      console.log('🎯 Setting totalRequests to:', userStatsData.totalRequests);
+      console.log('🎯 Setting completedRides to:', userStatsData.completedRides);
+      
+      setUserStats(userStatsData);
+      console.log('✅ User stats updated successfully!');
+    } catch (error) {
+      console.error('❌ Error fetching user stats:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      // Set default values on error but log it clearly
+      console.log('⚠️ Setting default stats due to error');
+      setUserStats({
         totalRequests: 0,
         completedRides: 0,
-        rating: 0,
+        rating: 'N/A',
+        activeRequests: 0,
+        totalVotes: 0,
+        acceptedVotes: 0,
+        rejectedVotes: 0,
       });
-    } catch (error) {
-      console.error('Error fetching user stats:', error);
     }
   };
 
   const handleUpdateProfile = async () => {
     try {
+      console.log('🔄 Updating profile with data:', editForm);
+      
+      // Validate required fields
+      if (!editForm.name || editForm.name.trim().length < 2) {
+        Alert.alert('Validation Error', 'Name must be at least 2 characters long.');
+        return;
+      }
+      
+      if (editForm.year && (editForm.year < 1 || editForm.year > 10)) {
+        Alert.alert('Validation Error', 'Year must be between 1 and 10.');
+        return;
+      }
+      
       const response = await userAPI.updateProfile(editForm);
-      setUserInfo(prevInfo => ({ ...prevInfo, ...editForm }));
+      console.log('✅ Profile update response:', response.data);
+      
+      // Update local state with new data from backend
+      const updatedUserData = response.data.data || response.data;
+      setUserInfo(prevInfo => ({
+        ...prevInfo,
+        name: updatedUserData.name || editForm.name,
+        phone: updatedUserData.phone || editForm.phone,
+        course: updatedUserData.course || editForm.course,
+        year: updatedUserData.year || editForm.year,
+        gender: updatedUserData.gender || editForm.gender,
+        branch: updatedUserData.gender || editForm.gender, // Using gender as branch for now
+      }));
+      
       setEditModalVisible(false);
-      Alert.alert('Success', 'Profile updated successfully!');
+      Alert.alert('Success', 'Profile updated successfully!', [
+        { text: 'OK', onPress: () => fetchUserProfile() } // Refresh profile data
+      ]);
     } catch (error) {
-      console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+      console.error('❌ Error updating profile:', error);
+      console.error('❌ Update error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
+      const errorMessage = error.response?.data?.message || 'Failed to update profile. Please try again.';
+      Alert.alert('Error', errorMessage);
     }
   };
 
   const handleNotificationPress = () => {
     navigation.navigate('Notifications');
-  };
-
-  const handleCreateRequest = () => {
-    navigation.navigate('CreateRequest');
   };
 
   const handleEditProfile = () => {
@@ -138,6 +270,100 @@ const ProfileScreen = () => {
     })}`;
   };
 
+  // Function to get full image URL
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) {
+      console.log('🖼️ No image path provided');
+      return null;
+    }
+    if (imagePath.startsWith('http')) {
+      console.log('🖼️ Using full URL:', imagePath);
+      return imagePath;
+    }
+    const fullUrl = `${userAPI.getApiBaseUrl()}${imagePath}`;
+    console.log('🖼️ Constructed image URL:', fullUrl);
+    console.log('🖼️ API Base URL:', userAPI.getApiBaseUrl());
+    console.log('🖼️ Image Path:', imagePath);
+    return fullUrl;
+  };
+
+  // Handle image picker
+  const handleImagePicker = () => {
+    Alert.alert(
+      'Select Profile Picture',
+      'Choose how you want to select your profile picture',
+      [
+        { text: 'Camera', onPress: () => pickImage('camera') },
+        { text: 'Photo Library', onPress: () => pickImage('library') },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  // Pick image from camera or library
+  const pickImage = async (source) => {
+    try {
+      const { status } = source === 'camera' 
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', `Please grant ${source} permission to upload profile picture.`);
+        return;
+      }
+
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+          });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('❌ Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
+  };
+
+  // Upload profile image
+  const uploadProfileImage = async (imageUri) => {
+    try {
+      setImageUploading(true);
+      console.log('📤 Uploading profile image:', imageUri);
+      
+      const response = await userAPI.uploadProfileImage(imageUri);
+      console.log('✅ Image upload response:', response.data);
+      
+      // Extract the image URL from the response
+      const imageUrl = response.data.data?.imageUrl || response.data.imageUrl || response.data.data?.user?.profileImage;
+      console.log('🖼️ Extracted image URL:', imageUrl);
+      
+      // Update local state with new profile image
+      setUserInfo(prev => ({
+        ...prev,
+        profileImage: imageUrl
+      }));
+      
+      Alert.alert('Success', 'Profile picture updated successfully!');
+    } catch (error) {
+      console.error('❌ Error uploading image:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to upload image. Please try again.';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
@@ -151,11 +377,37 @@ const ProfileScreen = () => {
 
         <View style={styles.profileSection}>
           <View style={styles.profileImageContainer}>
-            <View style={styles.profileImage}>
-              <Ionicons name="person" size={40} color="#FFF" />
-            </View>
+            <TouchableOpacity 
+              style={styles.profileImage} 
+              onPress={handleImagePicker}
+              disabled={imageUploading}
+            >
+              {userInfo.profileImage ? (
+                <Image 
+                  source={{ 
+                    uri: getImageUrl(userInfo.profileImage)
+                  }} 
+                  style={styles.profileImagePhoto}
+                  onError={(e) => {
+                    console.log('❌ Failed to load profile image:', userInfo.profileImage);
+                    console.log('❌ Constructed URL:', getImageUrl(userInfo.profileImage));
+                    console.log('❌ Error details:', e.nativeEvent?.error);
+                  }}
+                />
+              ) : (
+                <Ionicons name="person" size={40} color="#FFF" />
+              )}
+              {imageUploading && (
+                <View style={styles.uploadingOverlay}>
+                  <Ionicons name="cloud-upload" size={20} color="#FFA500" />
+                </View>
+              )}
+            </TouchableOpacity>
             <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
               <Ionicons name="create-outline" size={16} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker} disabled={imageUploading}>
+              <Ionicons name="camera" size={16} color="#FFF" />
             </TouchableOpacity>
           </View>
           
@@ -175,7 +427,8 @@ const ProfileScreen = () => {
           )}
         </View>
 
-        {/* Stats Section */}
+        {/* Stats Section - Temporarily commented out */}
+        {/*
         <View style={styles.statsSection}>
           <Text style={styles.sectionTitle}>Ride Statistics</Text>
           <View style={styles.statsContainer}>
@@ -193,6 +446,7 @@ const ProfileScreen = () => {
             </View>
           </View>
         </View>
+        */}
 
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
@@ -203,8 +457,13 @@ const ProfileScreen = () => {
           </View>
           
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Branch</Text>
-            <Text style={styles.infoValue}>{userInfo.branch}</Text>
+            <Text style={styles.infoLabel}>Academic Year</Text>
+            <Text style={styles.infoValue}>{userInfo.year ? `Year ${userInfo.year}` : 'Not specified'}</Text>
+          </View>
+
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Gender</Text>
+            <Text style={styles.infoValue}>{userInfo.gender}</Text>
           </View>
 
           <View style={styles.infoItem}>
@@ -229,10 +488,6 @@ const ProfileScreen = () => {
           </Text>
         </View>
       </ScrollView>
-
-      <TouchableOpacity style={styles.createButton} onPress={handleCreateRequest}>
-        <Ionicons name="add" size={24} color="#FFF" />
-      </TouchableOpacity>
 
       {/* Edit Profile Modal */}
       <Modal
@@ -264,18 +519,6 @@ const ProfileScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <TextInput
-                style={styles.input}
-                value={editForm.email || ''}
-                onChangeText={(text) => setEditForm({...editForm, email: text})}
-                placeholder="Enter your email"
-                placeholderTextColor="#888"
-                keyboardType="email-address"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Phone</Text>
               <TextInput
                 style={styles.input}
@@ -284,6 +527,40 @@ const ProfileScreen = () => {
                 placeholder="Enter your phone number"
                 placeholderTextColor="#888"
                 keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Course</Text>
+              <TextInput
+                style={styles.input}
+                value={editForm.course || ''}
+                onChangeText={(text) => setEditForm({...editForm, course: text})}
+                placeholder="Enter your course (e.g., BTech)"
+                placeholderTextColor="#888"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Academic Year</Text>
+              <TextInput
+                style={styles.input}
+                value={editForm.year ? editForm.year.toString() : ''}
+                onChangeText={(text) => setEditForm({...editForm, year: parseInt(text) || 1})}
+                placeholder="Enter your academic year (1-10)"
+                placeholderTextColor="#888"
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Gender</Text>
+              <TextInput
+                style={styles.input}
+                value={editForm.gender || ''}
+                onChangeText={(text) => setEditForm({...editForm, gender: text})}
+                placeholder="Enter your gender"
+                placeholderTextColor="#888"
               />
             </View>
 
@@ -352,6 +629,33 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     backgroundColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImagePhoto: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#FFA500',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -458,25 +762,6 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     color: '#888',
-  },
-  createButton: {
-    position: 'absolute',
-    bottom: 100,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFA500',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   modalContainer: {
     flex: 1,

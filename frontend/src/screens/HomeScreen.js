@@ -81,10 +81,6 @@ const HomeScreen = () => {
     navigation.navigate('Notifications');
   };
 
-  const handleCreateRequest = () => {
-    navigation.navigate('CreateRequest');
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
@@ -127,10 +123,6 @@ const HomeScreen = () => {
           </TouchableOpacity>
         ))}
       </ScrollView>
-
-      <TouchableOpacity style={styles.createButton} onPress={handleCreateRequest}>
-        <Ionicons name="add" size={24} color="#FFF" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -230,25 +222,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 80,
     height: 60,
-  },
-  createButton: {
-    position: 'absolute',
-    bottom: 80,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFA500',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
 });
 

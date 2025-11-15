@@ -15,6 +15,7 @@ model User {
   year        Int?     // Year as number (e.g., 1, 2, 3, 4)
   course      String?  // Course name
   gender      String?  // Gender
+  profileImage String? // Base64 encoded image data
   role        String   @default("student")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

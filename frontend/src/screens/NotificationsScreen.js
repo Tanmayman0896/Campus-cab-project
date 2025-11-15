@@ -83,10 +83,6 @@ const NotificationsScreen = () => {
     navigation.goBack();
   };
 
-  const handleCreateRequest = () => {
-    navigation.navigate('CreateRequest');
-  };
-
   const handleCallUser = (phoneNumber) => {
     if (phoneNumber) {
       const phoneUrl = `tel:${phoneNumber}`;
@@ -179,10 +175,6 @@ const NotificationsScreen = () => {
           ))
         )}
       </ScrollView>
-
-      <TouchableOpacity style={styles.createButton} onPress={handleCreateRequest}>
-        <Ionicons name="add" size={24} color="#FFF" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -303,25 +295,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: 'bold',
-  },
-  createButton: {
-    position: 'absolute',
-    bottom: 100,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFA500',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
 });
 

@@ -4,10 +4,10 @@ import { Platform } from 'react-native';
 // Dynamic API URL based on platform
 const getApiBaseUrl = () => {
   if (Platform.OS === 'web') {
-    return 'http://localhost:3001/api/v1';
+    return 'http://localhost:3002/api/v1';
   } else {
-    // For mobile devices, use your computer's network IP
-    return 'http://10.176.254.138:3001/api/v1';
+    // For mobile devices, use your computer's current network IP
+    return 'http://10.63.209.138:3002/api/v1';
   }
 };
 
@@ -136,6 +136,32 @@ export const userAPI = {
     return apiClient.get('/users/stats');
   },
 
+  // Test connection for user operations
+  testConnection: async () => {
+    return await requestAPI.testConnection();
+  },
+
+  // Upload profile image
+  uploadProfileImage: (imageUri) => {
+    const formData = new FormData();
+    formData.append('profileImage', {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'profile-image.jpg',
+    });
+    
+    return apiClient.post('/users/profile/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // Get API base URL for constructing image URLs
+  getApiBaseUrl: () => {
+    return API_BASE_URL.replace('/api/v1', '');
+  },
+
   // Get all users (admin only)
   getAllUsers: (params) => {
     return apiClient.get('/users', { params });
@@ -160,17 +186,78 @@ export const rideAPI = {
   },
 };
 
-// Test connection function
-export const testConnection = async () => {
-  try {
-    console.log('🔄 Testing backend connection...');
-    const response = await apiClient.get('/health');
-    console.log('✅ Backend connection successful!', response.data);
-    return true;
-  } catch (error) {
-    console.error('❌ Backend connection failed:', error.message);
-    return false;
+// Enhanced connection test function
+requestAPI.testConnection = async () => {
+  const testUrls = [
+    'http://10.63.209.138:3002/api/v1',   // Current network IP (priority)
+    'http://10.176.254.138:3002/api/v1',  // Previous IP
+    'http://localhost:3002/api/v1'        // Localhost (for web/emulator)
+  ];
+  
+  console.log('🔄 Testing backend connection with multiple URLs...');
+  
+  for (const baseUrl of testUrls) {
+    try {
+      console.log(`🌐 Trying connection to: ${baseUrl}`);
+      
+      // Create temporary client for this URL
+      const tempClient = axios.create({
+        baseURL: baseUrl,
+        timeout: 5000,
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      // Test the requests endpoint directly
+      const response = await tempClient.get('/requests/all');
+      
+      console.log(`✅ Connection successful to ${baseUrl}`);
+      console.log('📊 Response status:', response.status);
+      console.log('📡 Response data type:', typeof response.data);
+      console.log('🚗 Raw response:', JSON.stringify(response.data, null, 2));
+      
+      if (response.data && response.data.data && response.data.data.requests) {
+        console.log('📈 Number of requests found:', response.data.data.requests.length);
+        response.data.data.requests.forEach((req, idx) => {
+          console.log(`  Request ${idx + 1}:`, {
+            id: req.id.substring(0, 8) + '...',
+            route: `${req.from} → ${req.to}`,
+            date: req.date,
+            status: req.status
+          });
+        });
+      }
+      
+      // Update the global API client to use this working URL
+      apiClient.defaults.baseURL = baseUrl;
+      console.log(`🎯 Updated API base URL to: ${baseUrl}`);
+      
+      return {
+        success: true,
+        url: baseUrl,
+        data: response.data
+      };
+      
+    } catch (error) {
+      console.log(`❌ Failed to connect to ${baseUrl}:`, error.message);
+      if (error.response) {
+        console.log(`   Status: ${error.response.status}`);
+        console.log(`   Data:`, error.response.data);
+      }
+      continue;
+    }
   }
+  
+  console.error('❌ All connection attempts failed!');
+  return {
+    success: false,
+    error: 'Could not connect to any backend URL'
+  };
+};
+
+// Legacy test connection function for backward compatibility
+export const testConnection = async () => {
+  const result = await requestAPI.testConnection();
+  return result.success;
 };
 
 export default apiClient;

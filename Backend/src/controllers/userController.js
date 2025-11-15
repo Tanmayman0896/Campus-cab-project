@@ -16,6 +16,7 @@ class UserController {
           year: true,
           course: true,
           gender: true,
+          profileImage: true,
           role: true,
           createdAt: true,
           updatedAt: true
@@ -69,6 +70,7 @@ class UserController {
           year: true,
           course: true,
           gender: true,
+          profileImage: true,
           role: true,
           createdAt: true,
           updatedAt: true
@@ -81,6 +83,60 @@ class UserController {
         data: updatedProfile
       });
     } catch (error) {
+      next(error);
+    }
+  }
+
+  // Upload/Update profile image
+  async uploadProfileImage(req, res, next) {
+    try {
+      const currentUserId = req.user.id;
+      
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No image file provided. Please select an image to upload.'
+        });
+      }
+
+      // Create the image URL (relative path for storage)
+      const imageUrl = `/uploads/profile-images/${req.file.filename}`;
+
+      // Update user's profile image in database
+      const updatedUser = await prisma.user.update({
+        where: { id: currentUserId },
+        data: { profileImage: imageUrl },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          year: true,
+          course: true,
+          gender: true,
+          profileImage: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Profile image updated successfully!',
+        data: {
+          user: updatedUser,
+          imageUrl: imageUrl
+        }
+      });
+    } catch (error) {
+      // Clean up uploaded file if database update fails
+      if (req.file && req.file.path) {
+        const fs = require('fs');
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.error('Failed to delete uploaded file:', err);
+        });
+      }
       next(error);
     }
   }
