@@ -88,8 +88,8 @@ const ProfileScreen = () => {
       };
       
       console.log('✅ Setting profile data:', profileData);
-      console.log('🖼️ Profile image from backend:', userData.profileImage);
-      console.log('🖼️ Profile image constructed URL:', userData.profileImage ? getImageUrl(userData.profileImage) : 'No image');
+      console.log('🖼️ Profile image from backend length:', userData.profileImage?.length);
+      console.log('🖼️ Profile image preview:', userData.profileImage?.substring(0, 50));
       setUserInfo(profileData);
       setEditForm({
         name: userData.name,
@@ -270,21 +270,23 @@ const ProfileScreen = () => {
     })}`;
   };
 
-  // Function to get full image URL
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) {
-      console.log('🖼️ No image path provided');
+  // Function to get image data (now handles base64 directly)
+  const getImageData = (imageData) => {
+    if (!imageData) {
+      console.log('🖼️ No image data provided');
       return null;
     }
-    if (imagePath.startsWith('http')) {
-      console.log('🖼️ Using full URL:', imagePath);
-      return imagePath;
+    if (imageData.startsWith('data:image/')) {
+      console.log('🖼️ Using base64 image data');
+      return imageData;
     }
-    const fullUrl = `${userAPI.getApiBaseUrl()}${imagePath}`;
-    console.log('🖼️ Constructed image URL:', fullUrl);
-    console.log('🖼️ API Base URL:', userAPI.getApiBaseUrl());
-    console.log('🖼️ Image Path:', imagePath);
-    return fullUrl;
+    // Fallback for old URL-based images
+    if (imageData.startsWith('http')) {
+      console.log('🖼️ Using URL image:', imageData);
+      return imageData;
+    }
+    console.log('⚠️ Unknown image data format:', imageData.substring(0, 50));
+    return null;
   };
 
   // Handle image picker
@@ -344,14 +346,15 @@ const ProfileScreen = () => {
       const response = await userAPI.uploadProfileImage(imageUri);
       console.log('✅ Image upload response:', response.data);
       
-      // Extract the image URL from the response
-      const imageUrl = response.data.data?.imageUrl || response.data.imageUrl || response.data.data?.user?.profileImage;
-      console.log('🖼️ Extracted image URL:', imageUrl);
+      // Extract the base64 image data from the response
+      const imageData = response.data.data?.profileImage || response.data.profileImage || response.data.data?.user?.profileImage;
+      console.log('🖼️ Extracted image data length:', imageData?.length);
+      console.log('🖼️ Image data preview:', imageData?.substring(0, 50));
       
       // Update local state with new profile image
       setUserInfo(prev => ({
         ...prev,
-        profileImage: imageUrl
+        profileImage: imageData
       }));
       
       Alert.alert('Success', 'Profile picture updated successfully!');
@@ -385,12 +388,13 @@ const ProfileScreen = () => {
               {userInfo.profileImage ? (
                 <Image 
                   source={{ 
-                    uri: getImageUrl(userInfo.profileImage)
+                    uri: getImageData(userInfo.profileImage)
                   }} 
                   style={styles.profileImagePhoto}
                   onError={(e) => {
-                    console.log('❌ Failed to load profile image:', userInfo.profileImage);
-                    console.log('❌ Constructed URL:', getImageUrl(userInfo.profileImage));
+                    console.log('❌ Failed to load profile image');
+                    console.log('❌ Image data type:', typeof userInfo.profileImage);
+                    console.log('❌ Image data preview:', userInfo.profileImage?.substring(0, 50));
                     console.log('❌ Error details:', e.nativeEvent?.error);
                   }}
                 />

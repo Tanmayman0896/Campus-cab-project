@@ -92,20 +92,39 @@ class UserController {
     try {
       const currentUserId = req.user.id;
       
-      if (!req.file) {
+      if (!req.body.profileImage) {
         return res.status(400).json({
           success: false,
-          message: 'No image file provided. Please select an image to upload.'
+          message: 'No image data provided. Please select an image to upload.'
         });
       }
 
-      // Create the image URL (relative path for storage)
-      const imageUrl = `/uploads/profile-images/${req.file.filename}`;
+      // Validate base64 image data
+      const base64Data = req.body.profileImage;
+      if (!base64Data.startsWith('data:image/')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid image format. Please provide a valid image.'
+        });
+      }
 
-      // Update user's profile image in database
+      // Optional: Validate image size (base64 is ~33% larger than original)
+      const sizeInBytes = (base64Data.length * 3) / 4;
+      const maxSizeInMB = 5;
+      if (sizeInBytes > maxSizeInMB * 1024 * 1024) {
+        return res.status(400).json({
+          success: false,
+          message: `Image size too large. Maximum allowed size is ${maxSizeInMB}MB.`
+        });
+      }
+
+      console.log('📤 Storing profile image in database for user:', currentUserId);
+      console.log('📊 Image size:', (sizeInBytes / 1024).toFixed(2), 'KB');
+
+      // Update user's profile image in database (store base64 directly)
       const updatedUser = await prisma.user.update({
         where: { id: currentUserId },
-        data: { profileImage: imageUrl },
+        data: { profileImage: base64Data },
         select: {
           id: true,
           email: true,
@@ -121,22 +140,18 @@ class UserController {
         }
       });
 
+      console.log('✅ Profile image updated successfully in database');
+
       res.json({
         success: true,
         message: 'Profile image updated successfully!',
         data: {
           user: updatedUser,
-          imageUrl: imageUrl
+          profileImage: base64Data
         }
       });
     } catch (error) {
-      // Clean up uploaded file if database update fails
-      if (req.file && req.file.path) {
-        const fs = require('fs');
-        fs.unlink(req.file.path, (err) => {
-          if (err) console.error('Failed to delete uploaded file:', err);
-        });
-      }
+      console.error('❌ Error updating profile image:', error);
       next(error);
     }
   }

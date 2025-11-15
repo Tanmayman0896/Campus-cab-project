@@ -4,10 +4,10 @@ import { Platform } from 'react-native';
 // Dynamic API URL based on platform
 const getApiBaseUrl = () => {
   if (Platform.OS === 'web') {
-    return 'http://localhost:3002/api/v1';
+    return 'http://localhost:3001/api/v1';
   } else {
     // For mobile devices, use your computer's current network IP
-    return 'http://10.63.209.138:3002/api/v1';
+    return 'http://10.63.209.138:3001/api/v1';
   }
 };
 
@@ -141,20 +141,32 @@ export const userAPI = {
     return await requestAPI.testConnection();
   },
 
-  // Upload profile image
-  uploadProfileImage: (imageUri) => {
-    const formData = new FormData();
-    formData.append('profileImage', {
-      uri: imageUri,
-      type: 'image/jpeg',
-      name: 'profile-image.jpg',
-    });
-    
-    return apiClient.post('/users/profile/image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+  // Upload profile image (now sends base64 data)
+  uploadProfileImage: async (imageUri) => {
+    try {
+      // Convert image URI to base64
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = reader.result;
+          console.log('📤 Sending base64 image data to backend');
+          console.log('📊 Base64 data length:', base64Data.length);
+          
+          // Send base64 data to backend
+          apiClient.post('/users/profile/image', {
+            profileImage: base64Data
+          }).then(resolve).catch(reject);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('❌ Error converting image to base64:', error);
+      throw error;
+    }
   },
 
   // Get API base URL for constructing image URLs
@@ -189,9 +201,9 @@ export const rideAPI = {
 // Enhanced connection test function
 requestAPI.testConnection = async () => {
   const testUrls = [
-    'http://10.63.209.138:3002/api/v1',   // Current network IP (priority)
-    'http://10.176.254.138:3002/api/v1',  // Previous IP
-    'http://localhost:3002/api/v1'        // Localhost (for web/emulator)
+    'http://10.63.209.138:3001/api/v1',   // Current network IP (priority)
+    'http://10.176.254.138:3001/api/v1',  // Previous IP
+    'http://localhost:3001/api/v1'        // Localhost (for web/emulator)
   ];
   
   console.log('🔄 Testing backend connection with multiple URLs...');

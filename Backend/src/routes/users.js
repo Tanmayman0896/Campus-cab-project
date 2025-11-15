@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const userCtrl = require('../controllers/userController');
-const { uploadProfileImage } = require('../middleware/upload');
 
 // No middleware - direct access
 
@@ -14,9 +13,9 @@ router.get('/profile', userCtrl.getProfile);
 
 router.put('/profile', userCtrl.updateProfile);
 
-// POST /users/profile/image - Upload profile image
+// POST /users/profile/image - Upload profile image (now accepts base64 data)
 
-router.post('/profile/image', uploadProfileImage, userCtrl.uploadProfileImage);
+router.post('/profile/image', userCtrl.uploadProfileImage);
 
 
  //DELETE /users/account - Delete your account
