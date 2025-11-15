@@ -55,8 +55,11 @@ const ProfileScreen = () => {
       const result = await userAPI.testConnection?.() || { success: false };
       if (result.success) {
         console.log('✅ Backend connection successful for ProfileScreen');
+        console.log('🎯 Connected to:', result.url);
       } else {
         console.log('❌ Backend connection failed for ProfileScreen');
+        console.log('🔍 Tested URLs: http://10.63.209.138:3001, http://10.176.254.138:3001, http://localhost:3001');
+        console.log('💡 Make sure backend server is running on port 3001');
       }
     } catch (error) {
       console.log('❌ ProfileScreen connection test error:', error.message);
@@ -70,16 +73,28 @@ const ProfileScreen = () => {
       const response = await userAPI.getProfile();
       console.log('📱 User profile response:', response.data);
       
-      // Backend returns user data directly in response.data
-      const userData = response.data || {};
-      console.log('👤 Processing user data:', userData);
+      // Backend returns: { success: true, data: { id, name, email, phone, etc... } }
+      console.log('📥 Raw API response:', JSON.stringify(response, null, 2));
+      
+      const responseData = response.data;
+      console.log('📊 Response data:', responseData);
+      
+      // Extract user data from response.data.data (nested structure)
+      const userData = responseData.data || responseData || {};
+      console.log('👤 Extracted user data:', userData);
+      console.log('👤 User name from DB:', userData.name);
+      console.log('👤 User email from DB:', userData.email);
+      
+      if (!userData || !userData.name) {
+        throw new Error('No user data received from backend');
+      }
       
       const profileData = {
-        name: userData.name || 'Campus Cab User',
-        registrationNo: userData.registrationNo || 'N/A',
-        email: userData.email || 'user@campus.edu',
-        course: userData.course || 'BTech',
-        branch: userData.gender || 'Not specified',
+        name: userData.name,
+        registrationNo: userData.registrationNo || userData.id?.substring(0, 8) || 'N/A',
+        email: userData.email,
+        course: userData.course || 'Not specified',
+        branch: userData.branch || userData.course || 'Not specified', 
         phone: userData.phone || 'Not provided',
         year: userData.year || 1,
         gender: userData.gender || 'Not specified',
@@ -105,16 +120,46 @@ const ProfileScreen = () => {
         status: error.response?.status,
         data: error.response?.data
       });
-      // Set default values on error
+      
+      // Try to test connection first before setting defaults
+      try {
+        const connectionTest = await userAPI.testConnection();
+        if (!connectionTest.success) {
+          console.log('🔧 Backend connection failed - trying to reconnect...');
+        }
+      } catch (connError) {
+        console.error('❌ Connection test failed:', connError);
+      }
+      
+      // Show specific error message based on the type of error
+      let errorMessage = 'Unable to load profile.';
+      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+        errorMessage = 'Backend server not reachable. Make sure server is running on port 3001.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'User profile not found in database.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication required. Please login again.';
+      }
+      
+      Alert.alert(
+        'Profile Load Error', 
+        errorMessage + ' Tap retry to try again.',
+        [
+          { text: 'Retry', onPress: () => fetchUserProfile() },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+      
+      // Set clear error state - no fake data
       setUserInfo({
-        name: 'Campus Cab User',
-        registrationNo: 'N/A',
-        email: 'user@campus.edu',
-        course: 'BTech',
-        branch: 'Computer Science Engineering',
-        phone: 'Not provided',
-        year: 1,
-        gender: 'Not specified',
+        name: 'Failed to Load Profile',
+        registrationNo: 'Error',
+        email: 'Check logs for details',
+        course: 'Connection Issue',
+        branch: 'Backend Error', 
+        phone: 'Server Unreachable',
+        year: 0,
+        gender: 'Unknown',
         createdAt: new Date().toISOString(),
       });
     } finally {
@@ -373,9 +418,22 @@ const ProfileScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity onPress={handleNotificationPress}>
-            <Ionicons name="notifications-outline" size={24} color="#FFF" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              onPress={async () => {
+                console.log('🔄 Manual refresh triggered');
+                await testBackendConnection();
+                await fetchUserProfile();
+                await fetchUserStats();
+              }}
+              style={styles.refreshButton}
+            >
+              <Ionicons name="refresh-outline" size={20} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleNotificationPress}>
+              <Ionicons name="notifications-outline" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.profileSection}>
@@ -407,19 +465,39 @@ const ProfileScreen = () => {
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
-              <Ionicons name="create-outline" size={16} color="#FFF" />
-            </TouchableOpacity>
             <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker} disabled={imageUploading}>
               <Ionicons name="camera" size={16} color="#FFF" />
             </TouchableOpacity>
           </View>
           
           {loading ? (
-            <Text style={styles.loadingText}>Loading profile...</Text>
+            <>
+              <Text style={styles.loadingText}>Loading profile...</Text>
+              <Text style={styles.connectionInfo}>Connecting to backend server...</Text>
+            </>
           ) : (
             <>
-              <Text style={styles.userName}>{userInfo.name}</Text>
+              <View style={styles.nameContainer}>
+                <Text style={styles.userName}>{userInfo.name}</Text>
+                <TouchableOpacity onPress={handleEditProfile} style={styles.editProfileButton}>
+                  <Ionicons name="create-outline" size={18} color="#FFA500" />
+                </TouchableOpacity>
+              </View>
+              {(userInfo.name === 'Failed to Load Profile' || userInfo.name === 'Connection Error') && (
+                <TouchableOpacity 
+                  onPress={async () => {
+                    console.log('🔄 Retry button pressed');
+                    await testBackendConnection();
+                    await fetchUserProfile();
+                  }}
+                  style={styles.retryButton}
+                >
+                  <Text style={styles.retryText}>🔄 Retry Connection</Text>
+                  <Text style={styles.errorInfo}>
+                    Backend server should be running on port 3001
+                  </Text>
+                </TouchableOpacity>
+              )}
               <Text style={styles.registrationNo}>
                 Registration No: {userInfo.registrationNo}
               </Text>
@@ -615,9 +693,46 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFF',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
   loadingText: {
     fontSize: 16,
     color: '#888',
+    textAlign: 'center',
+  },
+  connectionInfo: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  errorInfo: {
+    fontSize: 12,
+    color: '#ff6b6b',
+    textAlign: 'center',
+    marginTop: 5,
+    fontStyle: 'italic',
+  },
+  retryButton: {
+    marginTop: 10,
+    padding: 15,
+    backgroundColor: 'rgba(255, 165, 0, 0.1)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FFA500',
+  },
+  retryText: {
+    color: '#FFA500',
+    fontSize: 14,
+    fontWeight: 'bold',
     textAlign: 'center',
   },
   profileSection: {
@@ -655,7 +770,7 @@ const styles = StyleSheet.create({
   cameraButton: {
     position: 'absolute',
     bottom: 0,
-    left: 0,
+    right: 0,
     width: 30,
     height: 30,
     borderRadius: 15,
@@ -674,12 +789,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 5,
+    gap: 8,
+  },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FFF',
-    marginBottom: 5,
     textAlign: 'center',
+  },
+  editProfileButton: {
+    padding: 6,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 165, 0, 0.2)',
+    borderWidth: 1,
+    borderColor: '#FFA500',
   },
   registrationNo: {
     fontSize: 16,
