@@ -1,10 +1,20 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 
-// Configure the API base URL - Backend is running on port 3003
-// Try localhost first, fallback to network IP if needed  
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api/v1';
+// Dynamic API URL based on platform
+const getApiBaseUrl = () => {
+  if (Platform.OS === 'web') {
+    return 'http://localhost:3001/api/v1';
+  } else {
+    // For mobile devices, use your computer's network IP
+    return 'http://10.176.254.138:3001/api/v1';
+  }
+};
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || getApiBaseUrl();
 
 console.log('🚀 API Base URL:', API_BASE_URL);
+console.log('🔧 Platform:', Platform.OS);
 
 // Create axios instance with default config
 const apiClient = axios.create({
