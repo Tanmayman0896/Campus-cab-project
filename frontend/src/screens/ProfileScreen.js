@@ -419,7 +419,7 @@ const ProfileScreen = () => {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
           <View style={styles.headerActions}>
-            <TouchableOpacity 
+            {/* <TouchableOpacity 
               onPress={async () => {
                 console.log('🔄 Manual refresh triggered');
                 await testBackendConnection();
@@ -429,7 +429,7 @@ const ProfileScreen = () => {
               style={styles.refreshButton}
             >
               <Ionicons name="refresh-outline" size={20} color="#FFF" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <TouchableOpacity onPress={handleNotificationPress}>
               <Ionicons name="notifications-outline" size={24} color="#FFF" />
             </TouchableOpacity>
