@@ -144,10 +144,16 @@ class RequestController {
     try {
       const { page = 1, limit = 20, status = 'active' } = req.query;
       const skip = (page - 1) * limit;
+      const currentUserId = req.user.id;
+
+      // Get today's date at midnight (start of day) for proper comparison
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
       const searchCriteria = {
         status,
-        date: { gte: new Date() } // Only show future rides
+        date: { gte: today } // Only show rides from today onwards
+        // Removed userId filter - show ALL users' requests in the general requests list
       };
 
       const [allRequests, totalCount] = await Promise.all([

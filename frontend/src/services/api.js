@@ -7,7 +7,7 @@ const getApiBaseUrl = () => {
     return 'http://localhost:3001/api/v1';
   } else {
     // For mobile devices, use your computer's current network IP
-    return 'http://10.63.209.138:3001/api/v1';
+    return 'http://10.176.254.138:3001/api/v1';
   }
 };
 
@@ -201,8 +201,8 @@ export const rideAPI = {
 // Enhanced connection test function
 requestAPI.testConnection = async () => {
   const testUrls = [
-    'http://10.63.209.138:3001/api/v1',   // Current network IP (priority)
-    'http://10.176.254.138:3001/api/v1',  // Previous IP
+    'http://10.176.254.138:3001/api/v1',  // Current network IP (priority)
+    'http://10.63.209.138:3001/api/v1',   // Previous IP
     'http://localhost:3001/api/v1'        // Localhost (for web/emulator)
   ];
   
