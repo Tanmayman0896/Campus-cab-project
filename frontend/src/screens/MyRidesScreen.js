@@ -113,6 +113,22 @@ const MyRidesScreen = () => {
     console.log('Calling:', passenger.name);
   };
 
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+  };
+
+  const formatTime = (timeString) => {
+    const [hours, minutes] = timeString.split(':');
+    const date = new Date();
+    date.setHours(hours, minutes);
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
@@ -156,7 +172,7 @@ const MyRidesScreen = () => {
                     {request.from} → {request.to}
                   </Text>
                   <Text style={styles.dateTime}>
-                    {request.date} at {request.time}
+                    {formatDate(request.date)} at {formatTime(request.time)}
                   </Text>
                   <Text style={styles.passengers}>
                     {request.maxPersons} passenger{request.maxPersons !== 1 ? 's' : ''}
