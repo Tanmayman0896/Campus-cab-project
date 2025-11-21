@@ -1,4 +1,4 @@
--# Campus Cab
+# Campus Cab
 
 A React Native mobile application for carpooling with a beautiful dark theme UI.
 
@@ -93,8 +93,6 @@ src/
 │   ├── CreateRequestScreen.js
 │   ├── NotificationsScreen.js
 │   └── FilterScreen.js
-└── assets/
-    └── (placeholder images)
 ```
 
 ## Features Overview
