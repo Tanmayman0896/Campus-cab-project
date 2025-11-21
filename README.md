@@ -14,10 +14,42 @@ A React Native mobile application for carpooling with a beautiful dark theme UI.
 
 ## Tech Stack
 
-- React Native
-- Expo
-- React Navigation
-- Expo Vector Icons
+### **Frontend (React Native Mobile App)**
+- **React Native** - Cross-platform mobile development framework
+- **Expo** - Development platform and toolchain
+- **React Navigation** - Navigation library for React Native
+- **Expo Vector Icons** - Icon library (Ionicons, MaterialCommunityIcons)
+- **React Native Community Datetimepicker** - Date and time picker components
+- **Expo Image Picker** - Camera and gallery image selection
+- **Axios** - HTTP client for API requests
+- **React Native Gesture Handler** - Touch and gesture system
+- **React Native Safe Area Context** - Safe area handling
+- **React Native Screens** - Native screen management
+- **React Native Reanimated** - Advanced animations
+- **Expo Status Bar** - Status bar configuration
+
+### **Backend (Node.js API Server)**
+- **Node.js** - JavaScript runtime environment
+- **Express.js** - Web framework for Node.js
+- **Prisma** - Database ORM and toolkit
+- **SQLite** - Lightweight database (development)
+- **CORS** - Cross-Origin Resource Sharing middleware
+- **Body Parser** - Request body parsing middleware
+- **Multer** - File upload handling middleware
+- **UUID** - Unique identifier generation
+- **Axios** - HTTP client for external API calls
+- **Nodemon** - Development server with auto-restart
+
+### **Database**
+- **SQLite** - File-based SQL database for development
+- **Prisma Schema** - Database schema definition and migrations
+
+### **Development Tools**
+- **Git** - Version control
+- **GitHub** - Code repository hosting
+- **VS Code** - Code editor
+- **Expo CLI** - Expo command line tools
+- **Metro Bundler** - React Native JavaScript bundler
 
 ## Installation
 
