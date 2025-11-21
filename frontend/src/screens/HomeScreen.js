@@ -9,15 +9,52 @@ import {
   Alert,
   StatusBar,
   Platform,
+  Image,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { testConnection, requestAPI } from '../services/api';
+import { testConnection, requestAPI, userAPI } from '../services/api';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
   const [connectionStatus, setConnectionStatus] = useState('testing');
   const [requests, setRequests] = useState([]);
+  const [profileImage, setProfileImage] = useState(null);
+
+  const fetchProfileImage = async () => {
+    try {
+      console.log('🔍 Attempting to fetch profile image...');
+      const response = await userAPI.getProfile();
+      console.log('📡 Profile API Response:', response.data);
+      
+      // The profileImage is directly in response.data.data.profileImage based on the logs
+      const profileImageData = response.data?.data?.profileImage || 
+                              response.data?.data?.user?.profileImage || 
+                              response.data?.user?.profileImage ||
+                              response.data?.profileImage;
+      
+      console.log('🖼️ Profile Image exists:', !!profileImageData);
+      console.log('🖼️ Profile Image type:', typeof profileImageData);
+      console.log('🖼️ Profile Image preview:', profileImageData?.substring(0, 100));
+      
+      if (profileImageData) {
+        setProfileImage(profileImageData);
+        console.log('✅ Profile image state set successfully');
+      } else {
+        console.log('❌ No profile image found in response');
+      }
+    } catch (error) {
+      console.log('❌ Failed to fetch profile image:', error.message);
+      console.log('❌ Error details:', error.response?.data);
+    }
+  };
+
+  const getImageData = (imageData) => {
+    if (!imageData) return null;
+    if (imageData.startsWith('data:image/')) return imageData;
+    if (imageData.startsWith('http')) return imageData;
+    return `data:image/jpeg;base64,${imageData}`;
+  };
 
   // Test backend connection when component mounts
   useEffect(() => {
@@ -46,13 +83,29 @@ const HomeScreen = () => {
     checkConnection();
   }, []);
 
+  // Fetch profile image when connection is established
+  useEffect(() => {
+    if (connectionStatus === 'connected') {
+      fetchProfileImage();
+    }
+  }, [connectionStatus]);
+
+  // Test effect to see if we can display an image
+  useEffect(() => {
+    console.log('🔄 Profile image state changed:', !!profileImage);
+    if (profileImage) {
+      console.log('✅ ProfileImage exists, type:', typeof profileImage);
+      console.log('🖼️ First 50 chars:', profileImage.substring(0, 50));
+    }
+  }, [profileImage]);
+
   const vehicleOptions = [
     {
       id: 1,
       name: 'Auto',
       description: 'Compact and efficient for solo rides.',
       seats: '1-3 seats',
-      icon: 'car-sport',
+      icon: 'auto',
     },
     {
       id: 2,
@@ -77,8 +130,8 @@ const HomeScreen = () => {
     },
   ];
 
-  const handleNotificationPress = () => {
-    navigation.navigate('Notifications');
+  const handleProfilePress = () => {
+    navigation.navigate('Profile');
   };
 
   return (
@@ -102,8 +155,27 @@ const HomeScreen = () => {
             </Text>
           </View>
         </View>
-        <TouchableOpacity onPress={handleNotificationPress}>
-          <Ionicons name="notifications-outline" size={24} color="#FFF" />
+        <TouchableOpacity 
+          onPress={handleProfilePress} 
+          onLongPress={() => {
+            // Test function: Long press to set a test image
+            console.log('🧪 Setting test profile image...');
+            setProfileImage('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=');
+          }}
+          style={styles.profileButton}
+        >
+          <View style={styles.profilePicContainer}>
+            {profileImage ? (
+              <Image
+                source={{ uri: getImageData(profileImage) }}
+                style={styles.profileImage}
+                onLoad={() => console.log('✅ Profile image loaded in UI')}
+                onError={(e) => console.log('❌ Profile image load error:', e.nativeEvent.error)}
+              />
+            ) : (
+              <Ionicons name="person" size={26} color="#FFF" />
+            )}
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -222,6 +294,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 80,
     height: 60,
+  },
+  profileButton: {
+    marginLeft: 10,
+  },
+  profilePicContainer: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    backgroundColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFA500',
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
   },
 });
 

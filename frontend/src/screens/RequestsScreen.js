@@ -11,10 +11,11 @@ import {
   Platform,
   RefreshControl,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { requestAPI, voteAPI } from '../services/api';
+import { requestAPI, voteAPI, userAPI } from '../services/api';
 
 const RequestsScreen = () => {
   const navigation = useNavigation();
@@ -22,6 +23,35 @@ const RequestsScreen = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
+
+  const fetchProfileImage = async () => {
+    try {
+      const response = await userAPI.getProfile();
+      
+      // The profileImage is directly in response.data.data.profileImage
+      const profileImageData = response.data?.data?.profileImage || 
+                              response.data?.data?.user?.profileImage || 
+                              response.data?.user?.profileImage ||
+                              response.data?.profileImage;
+      
+      if (profileImageData) {
+        setProfileImage(profileImageData);
+        console.log('✅ Profile image loaded successfully');
+      } else {
+        console.log('❌ No profile image found in response');
+      }
+    } catch (error) {
+      console.log('❌ Failed to fetch profile image:', error.message);
+    }
+  };
+
+  const getImageData = (imageData) => {
+    if (!imageData) return null;
+    if (imageData.startsWith('data:image/')) return imageData;
+    if (imageData.startsWith('http')) return imageData;
+    return `data:image/jpeg;base64,${imageData}`;
+  };
 
   // Debug state changes
   useEffect(() => {
@@ -35,6 +65,8 @@ const RequestsScreen = () => {
   useFocusEffect(
     React.useCallback(() => {
       fetchRequests();
+      // Fetch profile image separately, non-blocking
+      setTimeout(() => fetchProfileImage(), 1000);
     }, [searchText])
   );
 
@@ -149,8 +181,8 @@ const RequestsScreen = () => {
     });
   };
 
-  const handleNotificationPress = () => {
-    navigation.navigate('Notifications');
+  const handleProfilePress = () => {
+    navigation.navigate('Profile');
   };
 
   const handleFilterPress = () => {
@@ -169,8 +201,17 @@ const RequestsScreen = () => {
           <Text style={styles.title}>Carpool Requests</Text>
           <Text style={styles.subtitle}>Connect with others to share rides.</Text>
         </View>
-        <TouchableOpacity onPress={handleNotificationPress}>
-          <Ionicons name="notifications-outline" size={24} color="#FFF" />
+        <TouchableOpacity onPress={handleProfilePress} style={styles.profileButton}>
+          <View style={styles.profilePicContainer}>
+            {profileImage ? (
+              <Image
+                source={{ uri: getImageData(profileImage) }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <Ionicons name="person" size={26} color="#FFF" />
+            )}
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -308,6 +349,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFF',
     marginBottom: 5,
+  },
+  profileButton: {
+    marginLeft: 10,
+  },
+  profilePicContainer: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFA500',
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
   },
   subtitle: {
     fontSize: 16,

@@ -9,16 +9,46 @@ import {
   StatusBar,
   Platform,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { requestAPI } from '../services/api';
+import { requestAPI, userAPI } from '../services/api';
 
 const MyRidesScreen = () => {
   const navigation = useNavigation();
   const [userRequests, setUserRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
+
+  const fetchProfileImage = async () => {
+    try {
+      const response = await userAPI.getProfile();
+      
+      // The profileImage is directly in response.data.data.profileImage
+      const profileImageData = response.data?.data?.profileImage || 
+                              response.data?.data?.user?.profileImage || 
+                              response.data?.user?.profileImage ||
+                              response.data?.profileImage;
+      
+      if (profileImageData) {
+        setProfileImage(profileImageData);
+        console.log('✅ Profile image loaded successfully');
+      } else {
+        console.log('❌ No profile image found in response');
+      }
+    } catch (error) {
+      console.log('❌ Failed to fetch profile image:', error.message);
+    }
+  };
+
+  const getImageData = (imageData) => {
+    if (!imageData) return null;
+    if (imageData.startsWith('data:image/')) return imageData;
+    if (imageData.startsWith('http')) return imageData;
+    return `data:image/jpeg;base64,${imageData}`;
+  };
 
   // Debug state changes
   useEffect(() => {
@@ -32,6 +62,8 @@ const MyRidesScreen = () => {
   useFocusEffect(
     React.useCallback(() => {
       fetchUserRequests();
+      // Fetch profile image separately, non-blocking
+      setTimeout(() => fetchProfileImage(), 1000);
     }, [])
   );
 
@@ -104,8 +136,8 @@ const MyRidesScreen = () => {
     fetchUserRequests();
   };
 
-  const handleNotificationPress = () => {
-    navigation.navigate('Notifications');
+  const handleProfilePress = () => {
+    navigation.navigate('Profile');
   };
 
   const handleCall = (passenger) => {
@@ -137,8 +169,17 @@ const MyRidesScreen = () => {
           <Text style={styles.title}>My Rides</Text>
           <Text style={styles.route}>Your ride requests</Text>
         </View>
-        <TouchableOpacity onPress={handleNotificationPress}>
-          <Ionicons name="notifications-outline" size={24} color="#FFF" />
+        <TouchableOpacity onPress={handleProfilePress} style={styles.profileButton}>
+          <View style={styles.profilePicContainer}>
+            {profileImage ? (
+              <Image
+                source={{ uri: getImageData(profileImage) }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <Ionicons name="person" size={26} color="#FFF" />
+            )}
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -209,6 +250,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFF',
     marginBottom: 5,
+  },
+  profileButton: {
+    marginLeft: 10,
+  },
+  profilePicContainer: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    backgroundColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFA500',
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
   },
   route: {
     fontSize: 16,

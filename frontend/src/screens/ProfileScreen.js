@@ -430,8 +430,8 @@ const ProfileScreen = () => {
             >
               <Ionicons name="refresh-outline" size={20} color="#FFF" />
             </TouchableOpacity> */}
-            <TouchableOpacity onPress={handleNotificationPress}>
-              <Ionicons name="notifications-outline" size={24} color="#FFF" />
+            <TouchableOpacity onPress={() => setEditModalVisible(true)}>
+              <Ionicons name="person-circle-outline" size={24} color="#FFF" />
             </TouchableOpacity>
           </View>
         </View>

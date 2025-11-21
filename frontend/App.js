@@ -33,6 +33,8 @@ function TabNavigator() {
             iconName = focused ? 'car' : 'car-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
+          } else if (route.name === 'Notifications') {
+            iconName = focused ? 'notifications' : 'notifications-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -51,7 +53,7 @@ function TabNavigator() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Requests" component={RequestsScreen} />
       <Tab.Screen name="My Rides" component={MyRidesScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Notifications" component={NotificationsScreen} />
     </Tab.Navigator>
   );
 }
@@ -70,6 +72,7 @@ export default function App() {
         <Stack.Screen name="CreateRequest" component={CreateRequestScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Filter" component={FilterScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
