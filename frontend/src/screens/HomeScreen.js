@@ -105,27 +105,31 @@ const HomeScreen = () => {
       name: 'Auto',
       description: 'Compact and efficient for solo rides.',
       seats: '1-3 seats',
-      icon: 'auto',
+      iconType: 'MaterialCommunityIcons',
+      icon: 'rickshaw',
     },
     {
       id: 2,
       name: 'Sedan',
       description: 'Comfortable and reliable for small groups.',
       seats: '2-4 seats',
-      icon: 'car',
+      iconType: 'MaterialCommunityIcons',
+      icon: 'car-side',
     },
     {
       id: 3,
       name: 'SUV',
       description: 'Spacious for larger groups or extra luggage.',
       seats: '4-6 seats',
-      icon: 'car-sport',
+      iconType: 'MaterialCommunityIcons',
+      icon: 'car-hatchback',
     },
     {
       id: 4,
       name: 'Traveller',
       description: 'Ideal for long trips with ample space.',
       seats: '7-10 seats',
+      iconType: 'MaterialCommunityIcons',
       icon: 'bus',
     },
   ];
@@ -190,7 +194,11 @@ const HomeScreen = () => {
               <Text style={styles.vehicleSeats}>{vehicle.seats}</Text>
             </View>
             <View style={styles.vehicleImageContainer}>
-              <Ionicons name={vehicle.icon} size={30} color="#FFA500" />
+              {vehicle.iconType === 'MaterialCommunityIcons' ? (
+                <MaterialCommunityIcons name={vehicle.icon} size={30} color="#FFA500" />
+              ) : (
+                <Ionicons name={vehicle.icon} size={30} color="#FFA500" />
+              )}
             </View>
           </TouchableOpacity>
         ))}
