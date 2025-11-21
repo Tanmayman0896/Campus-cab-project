@@ -1,20 +1,20 @@
-# Campus Cab
+# 🚗 Campus Cab
 
-A React Native mobile application for carpooling with a beautiful dark theme UI.
+A React Native mobile application for carpooling with a beautiful dark theme UI. 📱✨
 
-## Features
+## ✨ Features
 
-- **Home Screen**: Select vehicle type (Auto, Sedan, SUV, Traveller)
-- **Carpool Requests**: View and browse ride requests from other users
-- **Filter Options**: Filter requests by location, date, and gender preference
-- **My Rides**: View current rides and passengers
-- **Profile**: User profile with personal information
-- **Create Request**: Add new carpool requests
-- **Notifications**: Real-time notifications for ride requests and acceptances
+- 🏠 **Home Screen**: Select vehicle type (Auto, Sedan, SUV, Traveller)
+- 🚙 **Carpool Requests**: View and browse ride requests from other users
+- 🔍 **Filter Options**: Filter requests by location, date, and gender preference
+- 🚗 **My Rides**: View current rides and passengers
+- 👤 **Profile**: User profile with personal information
+- ➕ **Create Request**: Add new carpool requests
+- 🔔 **Notifications**: Real-time notifications for ride requests and acceptances
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-### **Frontend (React Native Mobile App)**
+### **📱 Frontend (React Native Mobile App)**
 - **React Native** - Cross-platform mobile development framework
 - **Expo** - Development platform and toolchain
 - **React Navigation** - Navigation library for React Native
@@ -28,45 +28,45 @@ A React Native mobile application for carpooling with a beautiful dark theme UI.
 - **React Native Reanimated** - Advanced animations
 - **Expo Status Bar** - Status bar configuration
 
-### **Backend (Node.js API Server)**
-- **Node.js** - JavaScript runtime environment
-- **Express.js** - Web framework for Node.js
-- **Prisma** - Database ORM and toolkit
-- **SQLite** - Lightweight database (development)
-- **CORS** - Cross-Origin Resource Sharing middleware
-- **Body Parser** - Request body parsing middleware
-- **Multer** - File upload handling middleware
-- **UUID** - Unique identifier generation
-- **Axios** - HTTP client for external API calls
-- **Nodemon** - Development server with auto-restart
+### **⚙️ Backend (Node.js API Server)**
+- **Node.js** - JavaScript runtime environment 🟢
+- **Express.js** - Web framework for Node.js 🚀
+- **Prisma** - Database ORM and toolkit 🔧
+- **SQLite** - Lightweight database (development) 💾
+- **CORS** - Cross-Origin Resource Sharing middleware 🌐
+- **Body Parser** - Request body parsing middleware 📋
+- **Multer** - File upload handling middleware 📁
+- **UUID** - Unique identifier generation 🆔
+- **Axios** - HTTP client for external API calls 📡
+- **Nodemon** - Development server with auto-restart 🔄
 
-### **Database**
-- **SQLite** - File-based SQL database for development
-- **Prisma Schema** - Database schema definition and migrations
+### **🗄️ Database**
+- **SQLite** - File-based SQL database for development 💾
+- **Prisma Schema** - Database schema definition and migrations 📊
 
-### **Development Tools**
+### **🔧 Development Tools**
 - **Git** - Version control
 - **GitHub** - Code repository hosting
 - **VS Code** - Code editor
 - **Expo CLI** - Expo command line tools
 - **Metro Bundler** - React Native JavaScript bundler
 
-## Installation
+## 📦 Installation
 
 ### **🚨 Important Node.js Version Issue**
 Your app is using **Node.js v24** which is not compatible with **Expo SDK 49**. 
 
-### **Quick Solutions:**
+### **⚡ Quick Solutions:**
 
-#### **Option 1: Downgrade Node.js (Recommended)**
-1. Install Node.js v18 LTS from [nodejs.org](https://nodejs.org/)
+#### **✅ Option 1: Downgrade Node.js (Recommended)**
+1. Install Node.js v18 LTS from [nodejs.org](https://nodejs.org/) 📥
 2. Then run:
 ```bash
 npm install
 npx expo start
 ```
 
-#### **Option 2: Use Alternative Testing**
+#### **🔄 Option 2: Use Alternative Testing**
 If you want to keep Node.js v24, you can:
 ```bash
 # Test the components individually
@@ -105,15 +105,15 @@ npx expo run:ios
 npx expo start --web
 ```
 
-## Important Notes
+## 📝 Important Notes
 
-- **Node.js Version**: Use Node.js v18 LTS for best compatibility
-- **Expo Go Version**: Make sure you have Expo Go SDK 49 installed on your device
-- **QR Code**: Scan the QR code with Expo Go app to run on your device
-- **Web**: Press 'w' in the terminal to open in web browser
-- **Android**: Press 'a' in the terminal to open Android emulator
+- 🟢 **Node.js Version**: Use Node.js v18 LTS for best compatibility
+- 📱 **Expo Go Version**: Make sure you have Expo Go SDK 49 installed on your device
+- 📱 **QR Code**: Scan the QR code with Expo Go app to run on your device
+- 🌐 **Web**: Press 'w' in the terminal to open in web browser
+- 🤖 **Android**: Press 'a' in the terminal to open Android emulator
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 src/
@@ -128,53 +128,53 @@ src/
 
 ```
 
-## Features Overview
+## 🌟 Features Overview
 
-### Home Screen
-- Greeting message
-- Vehicle type selection (Auto, Sedan, SUV, Traveller)
-- Navigation to notifications and create request
+### 🏠 Home Screen
+- 👋 Greeting message
+- 🚗 Vehicle type selection (Auto, Sedan, SUV, Traveller)
+- 🧭 Navigation to notifications and create request
 
-### Requests Screen
-- List of all carpool requests
-- User information display
-- Filter functionality
-- Create new request button
+### 📋 Requests Screen
+- 📜 List of all carpool requests
+- 👤 User information display
+- 🔍 Filter functionality
+- ➕ Create new request button
 
-### My Rides Screen
-- Current active ride information
-- Passenger list with contact options
-- Call functionality for passengers
+### 🚙 My Rides Screen
+- ℹ️ Current active ride information
+- 👥 Passenger list with contact options
+- 📞 Call functionality for passengers
 
-### Profile Screen
-- User personal information
-- Profile picture with edit option
-- Change password and logout options
+### 👤 Profile Screen
+- 📋 User personal information
+- 📷 Profile picture with edit option
+- 🔐 Change password and logout options
 
-### Create Request Screen
-- Starting point and destination input
-- Date and time selection
-- Passenger count slider
-- Submit request functionality
+### ➕ Create Request Screen
+- 📍 Starting point and destination input
+- 📅 Date and time selection
+- 👥 Passenger count slider
+- ✅ Submit request functionality
 
-### Notifications Screen
-- Ride request notifications
-- Accept/reject functionality
-- Call option for requesters
+### 🔔 Notifications Screen
+- 📢 Ride request notifications
+- ✅❌ Accept/reject functionality
+- 📞 Call option for requesters
 
-### Filter Screen
-- Location filter
-- Date filter
-- Gender preference filter
-- Apply/clear filters
+### 🔍 Filter Screen
+- 📍 Location filter
+- 📅 Date filter
+- 👤 Gender preference filter
+- ✅🗑️ Apply/clear filters
 
-## Design
+## 🎨 Design
 
 The app features a dark theme with:
-- Primary color: Orange (#FFA500)
-- Background: Black (#000)
-- Cards: Dark gray (#1a1a1a)
-- Text: White and gray variants
-- Consistent typography and spacing
+- 🧡 Primary color: Orange (#FFA500)
+- ⚫ Background: Black (#000)
+- 🔲 Cards: Dark gray (#1a1a1a)
+- ⚪ Text: White and gray variants
+- 📝 Consistent typography and spacing
 
 ## Made with ❤️ by IEEE CS MUJ
