@@ -8,13 +8,32 @@ class RequestController {
       const { from, to, date, time, carType, maxPersons } = req.body;
       const userId = req.user.id;
 
+      console.log('📝 Creating request with data:');
+      console.log('  - Raw date from frontend:', date);
+      console.log('  - Date type:', typeof date);
+      
+      // Fix date handling to avoid timezone issues
+      let requestDate;
+      if (typeof date === 'string') {
+        // If date is a string like "2025-11-29", create date in local timezone at noon to avoid timezone shift
+        const [year, month, day] = date.split('-');
+        requestDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0, 0);
+      } else {
+        // If it's already a Date object, ensure it's set to noon local time
+        const dateObj = new Date(date);
+        requestDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 12, 0, 0, 0);
+      }
+      
+      console.log('  - Processed date object:', requestDate);
+      console.log('  - Date will be stored as:', requestDate.toISOString());
+
       // Create the new request with the student as the first occupant
       const newRequest = await prisma.request.create({
         data: {
           userId,
           from,
           to,
-          date: new Date(date),
+          date: requestDate,
           time,
           carType,
           maxPersons,
@@ -146,53 +165,120 @@ class RequestController {
       const skip = (page - 1) * limit;
       const currentUserId = req.user.id;
 
-      // Get today's date at midnight (start of day) for proper comparison
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Get current date and time for comparison (use local timezone)
+      const now = new Date();
+      const currentDate = now.getFullYear() + '-' + 
+                         String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(now.getDate()).padStart(2, '0'); // Local date YYYY-MM-DD
+      const currentHour = now.getHours().toString().padStart(2, '0');
+      const currentMinute = now.getMinutes().toString().padStart(2, '0');
+      const currentTime = `${currentHour}:${currentMinute}`; // HH:MM format
+      
+      console.log('🕐 Current date (local):', currentDate);
+      console.log('🕐 Current time (local):', currentTime);
+      console.log('🕐 Full current datetime:', now);
+      console.log('🕐 UTC date from toISOString:', now.toISOString().split('T')[0]);
 
       const searchCriteria = {
         status,
-        date: { gte: today } // Only show rides from today onwards
-        // Removed userId filter - show ALL users' requests in the general requests list
+        // Show ALL requests regardless of date - only filter by status
+        // Requests will be filtered by time comparison below
       };
+      
+      console.log('🔍 Search criteria:', searchCriteria);
 
-      const [allRequests, totalCount] = await Promise.all([
-        prisma.request.findMany({
-          where: searchCriteria,
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            votes: {
-              select: {
-                id: true,
-                userId: true,
-                status: true
-              }
+      // Debug: Check all requests without filter first
+      const allRequestsDebug = await prisma.request.findMany({
+        select: { id: true, date: true, status: true, from: true, to: true, createdAt: true }
+      });
+      console.log('📋 All requests in DB:', allRequestsDebug.length);
+      allRequestsDebug.forEach((req, index) => {
+        console.log(`  ${index + 1}. Date: ${req.date}, Status: ${req.status}, Route: ${req.from}->${req.to}, Created: ${req.createdAt}`);
+      });
+
+      // Get ALL requests with the status filter only
+      const allRequestsFromDB = await prisma.request.findMany({
+        where: searchCriteria,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
             }
           },
-          orderBy: [
-            { date: 'asc' },
-            { time: 'asc' },
-            { createdAt: 'desc' }
-          ],
-          skip,
-          take: parseInt(limit)
-        }),
-        prisma.request.count({ where: searchCriteria })
-      ]);
+          votes: {
+            select: {
+              id: true,
+              userId: true,
+              status: true
+            }
+          }
+        },
+        orderBy: [
+          { date: 'asc' },
+          { time: 'asc' },
+          { createdAt: 'desc' }
+        ]
+      });
+
+      // Filter requests based on current time vs requested time
+      const allRequests = allRequestsFromDB.filter(request => {
+        // Use local date for comparison to avoid timezone issues
+        const requestDateObj = new Date(request.date);
+        const requestDate = requestDateObj.getFullYear() + '-' + 
+                           String(requestDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
+                           String(requestDateObj.getDate()).padStart(2, '0');
+        const requestTime = request.time; // Already in HH:MM format
+        
+        console.log(`⏰ Checking request: ${requestDate} ${requestTime} vs current: ${currentDate} ${currentTime}`);
+        console.log(`  📅 Request date object: ${requestDateObj}`);
+        
+        // Convert times to minutes for easier comparison
+        const [reqHour, reqMin] = requestTime.split(':').map(Number);
+        const [curHour, curMin] = currentTime.split(':').map(Number);
+        const requestTimeMinutes = reqHour * 60 + reqMin;
+        const currentTimeMinutes = curHour * 60 + curMin;
+        
+        console.log(`  📊 Time comparison: Request ${requestTimeMinutes} min vs Current ${currentTimeMinutes} min`);
+        
+        // Show request if:
+        // 1. Request date is in the future, OR  
+        // 2. Request date is today AND request time is in the future
+        if (requestDate > currentDate) {
+          console.log(`  ✅ Future date (${requestDate} > ${currentDate}) - showing`);
+          return true;
+        } else if (requestDate === currentDate) {
+          if (requestTimeMinutes > currentTimeMinutes) {
+            console.log(`  ✅ Today but future time (${requestTimeMinutes} > ${currentTimeMinutes}) - showing`);
+            return true;
+          } else {
+            console.log(`  ❌ Today but past time (${requestTimeMinutes} <= ${currentTimeMinutes}) - hiding`);
+            return false;
+          }
+        } else {
+          console.log(`  ❌ Past date (${requestDate} < ${currentDate}) - hiding`);
+          return false;
+        }
+      });
+
+      // Apply pagination to filtered results
+      const paginatedRequests = allRequests.slice(skip, skip + parseInt(limit));
+      const totalCount = allRequests.length;
+      
+      console.log('✅ Total requests after time filtering:', totalCount);
+      console.log('✅ Paginated requests to show:', paginatedRequests.length);
+      paginatedRequests.forEach((req, index) => {
+        console.log(`  ${index + 1}. ID: ${req.id.substring(0, 8)}, Date: ${req.date}, Time: ${req.time}, Route: ${req.from}->${req.to}`);
+      });
 
       res.json({
         success: true,
-        message: allRequests.length > 0 
+        message: paginatedRequests.length > 0 
           ? 'Here are all the available rides' 
           : 'No rides available right now. Be the first to create one!',
         data: {
-          requests: allRequests,
+          requests: paginatedRequests,
           pagination: {
             page: parseInt(page),
             limit: parseInt(limit),

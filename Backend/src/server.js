@@ -36,12 +36,12 @@ class RideShareServer {
             'http://localhost:19006',        // Expo web
             'http://localhost:8081',         // Expo Metro bundler
             'http://localhost:8082',         // Expo Metro bundler (alt port)
-            'http://10.63.209.138:8081',     // Expo device IP
-            'http://10.63.209.138:8082',     // Expo device IP (alt port)
+            'http://10.179.231.138:8081',    // Expo device IP (current)
+            'http://10.179.231.138:8082',    // Expo device IP (alt port)
             'exp://localhost:8081',          // Expo app protocol
             'exp://localhost:8082',          // Expo app protocol (alt port)
-            'exp://10.63.209.138:8081',      // Expo device protocol
-            'exp://10.63.209.138:8082',      // Expo device protocol (alt port)
+            'exp://10.179.231.138:8081',     // Expo device protocol (current)
+            'exp://10.179.231.138:8082',     // Expo device protocol (alt port)
           ],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -156,7 +156,7 @@ class RideShareServer {
             console.log(`Rideshare server running on port ${currentPort}`);
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
             console.log(`API Base URL: http://localhost:${currentPort}${this.apiBasePath}`);
-            console.log(`Network URL: http://10.63.209.138:${currentPort}${this.apiBasePath}`);
+            console.log(`Network URL: http://10.179.231.138:${currentPort}${this.apiBasePath}`);
             resolve();
           });
           
