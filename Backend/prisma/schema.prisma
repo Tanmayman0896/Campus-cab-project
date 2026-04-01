@@ -40,6 +40,12 @@ model Request {
   userId      String
   from        String
   to          String
+  pickupAddress String?
+  pickupLat   Float?
+  pickupLng   Float?
+  destinationAddress String?
+  destinationLat Float?
+  destinationLng Float?
   date        DateTime
   time        String
   carType     String?

@@ -1,17 +1,82 @@
 import axios from 'axios';
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 
-// Dynamic API URL based on platform
-const getApiBaseUrl = () => {
-  if (Platform.OS === 'web') {
-    return 'http://localhost:3001/api/v1';
-  } else {
-    // For mobile devices, use your computer's current network IP
-    return 'http://10.179.231.138:3001/api/v1';
-  }
+const API_VERSION_PATH = '/api/v1';
+
+const parseHostFromUrl = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const match = value.match(/https?:\/\/([^/:]+)/i);
+  return match ? match[1] : null;
 };
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || getApiBaseUrl();
+const getExpoHost = () => {
+  const scriptURL = NativeModules?.SourceCode?.scriptURL;
+  const hostFromScript = parseHostFromUrl(scriptURL);
+  if (hostFromScript) return hostFromScript;
+
+  try {
+    // expo-constants typically exposes hostUri like "192.168.x.x:8081" in dev.
+    const Constants = require('expo-constants').default;
+    const hostUri = Constants?.expoConfig?.hostUri || Constants?.manifest2?.extra?.expoClient?.hostUri || Constants?.manifest?.debuggerHost;
+    if (hostUri && typeof hostUri === 'string') {
+      return hostUri.split(':')[0];
+    }
+  } catch (error) {
+    // Ignore when module/runtime metadata is unavailable.
+  }
+
+  try {
+    // Linking URL in Expo dev often includes exp://<host>:<port>
+    const Linking = require('expo-linking');
+    const createdUrl = Linking?.createURL?.('/');
+    const hostFromLinking = parseHostFromUrl(createdUrl);
+    if (hostFromLinking) return hostFromLinking;
+  } catch (error) {
+    // Ignore when module/runtime metadata is unavailable.
+  }
+
+  return parseHostFromUrl(globalThis?.location?.origin);
+};
+
+const getCandidateBaseUrls = () => {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL || process.env.REACT_APP_API_URL;
+  if (envUrl) {
+    return [envUrl.replace(/\/$/, '')];
+  }
+
+  const envHost = process.env.EXPO_PUBLIC_API_HOST;
+  const explicitPort = Number(process.env.EXPO_PUBLIC_API_PORT);
+  const fallbackPorts = [3001, 3000, 3002, 3003, 3004, 3005];
+  const ports = Number.isInteger(explicitPort)
+    ? [explicitPort, ...fallbackPorts.filter((port) => port !== explicitPort)]
+    : fallbackPorts;
+  const urls = [];
+
+  if (Platform.OS === 'web') {
+    ports.forEach((port) => urls.push(`http://localhost:${port}${API_VERSION_PATH}`));
+    ports.forEach((port) => urls.push(`http://127.0.0.1:${port}${API_VERSION_PATH}`));
+  } else {
+    if (envHost) {
+      ports.forEach((port) => urls.push(`http://${envHost}:${port}${API_VERSION_PATH}`));
+    }
+
+    const expoHost = getExpoHost();
+    if (expoHost) {
+      ports.forEach((port) => urls.push(`http://${expoHost}:${port}${API_VERSION_PATH}`));
+    }
+
+    // Localhost can work for simulators; try before emulator-specific alias.
+    ports.forEach((port) => urls.push(`http://localhost:${port}${API_VERSION_PATH}`));
+    ports.forEach((port) => urls.push(`http://127.0.0.1:${port}${API_VERSION_PATH}`));
+
+    // Android emulator loopback alias as a last fallback.
+    ports.forEach((port) => urls.push(`http://10.0.2.2:${port}${API_VERSION_PATH}`));
+  }
+
+  return [...new Set(urls)];
+};
+
+const API_BASE_URL = getCandidateBaseUrls()[0] || `http://localhost:3001${API_VERSION_PATH}`;
 
 console.log('🚀 API Base URL:', API_BASE_URL);
 console.log('🔧 Platform:', Platform.OS);
@@ -49,7 +114,7 @@ apiClient.interceptors.response.use(
       console.error('❌ API Error Response:', error.response.status, error.response.data);
     } else if (error.request) {
       // Request made but no response
-      console.error('❌ No response from server. Check if backend is running on', API_BASE_URL);
+      console.error('❌ No response from server. Check if backend is running on', apiClient.defaults.baseURL);
     } else {
       // Something else happened
       console.error('❌ API Error:', error.message);
@@ -93,6 +158,18 @@ export const requestAPI = {
   // Delete/cancel request
   deleteRequest: (id) => {
     return apiClient.delete(`/requests/${id}`);
+  },
+
+  reverseGeocode: (params) => {
+    return apiClient.get('/requests/geocode/reverse', { params });
+  },
+
+  searchPlaces: (params) => {
+    return apiClient.get('/requests/geocode/search', { params });
+  },
+
+  getPlaceDetails: (params) => {
+    return apiClient.get('/requests/geocode/place', { params });
   },
 };
 
@@ -171,7 +248,7 @@ export const userAPI = {
 
   // Get API base URL for constructing image URLs
   getApiBaseUrl: () => {
-    return API_BASE_URL.replace('/api/v1', '');
+    return apiClient.defaults.baseURL.replace('/api/v1', '');
   },
 
   // Get all users (admin only)
@@ -200,11 +277,7 @@ export const rideAPI = {
 
 // Enhanced connection test function
 requestAPI.testConnection = async () => {
-  const testUrls = [
-    'http://10.179.231.138:3001/api/v1',  // Current network IP (priority)
-    'http://localhost:3001/api/v1',       // Localhost (for web/emulator)
-    'http://127.0.0.1:3001/api/v1'        // Fallback
-  ];
+  const testUrls = getCandidateBaseUrls();
   
   console.log('🔄 Testing backend connection with multiple URLs...');
   

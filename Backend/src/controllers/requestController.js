@@ -1,11 +1,26 @@
 const prisma = require('../config/prisma');
 const moment = require('moment');
 
+const OPENCAGE_GEOCODE_BASE_URL = 'https://api.opencagedata.com/geocode/v1/json';
+
 class RequestController {
   // When a student wants to create a new ride request
   async createRequest(req, res, next) {
     try {
-      const { from, to, date, time, carType, maxPersons } = req.body;
+      const {
+        from,
+        to,
+        date,
+        time,
+        carType,
+        maxPersons,
+        pickupAddress,
+        pickupLat,
+        pickupLng,
+        destinationAddress,
+        destinationLat,
+        destinationLng
+      } = req.body;
       const userId = req.user.id;
 
       console.log('📝 Creating request with data:');
@@ -33,6 +48,12 @@ class RequestController {
           userId,
           from,
           to,
+          pickupAddress,
+          pickupLat: pickupLat !== undefined ? Number(pickupLat) : null,
+          pickupLng: pickupLng !== undefined ? Number(pickupLng) : null,
+          destinationAddress,
+          destinationLat: destinationLat !== undefined ? Number(destinationLat) : null,
+          destinationLng: destinationLng !== undefined ? Number(destinationLng) : null,
           date: requestDate,
           time,
           carType,
@@ -56,6 +77,178 @@ class RequestController {
         success: true,
         message: 'Your ride request has been created! Others can now find and join it.',
         data: newRequest
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Convert coordinates to readable address
+  async reverseGeocode(req, res, next) {
+    try {
+      const { lat, lng } = req.query;
+      const latitude = Number(lat);
+      const longitude = Number(lng);
+
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Valid lat and lng query params are required'
+        });
+      }
+
+      const apiKey = process.env.OPENCAGE_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({
+          success: false,
+          message: 'Geocoding API key is not configured on server'
+        });
+      }
+
+      const params = new URLSearchParams({
+        q: `${latitude},${longitude}`,
+        key: apiKey,
+        limit: '1'
+      });
+
+      const url = `${OPENCAGE_GEOCODE_BASE_URL}?${params.toString()}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (!data.results?.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Unable to reverse geocode this location'
+        });
+      }
+
+      const firstResult = data.results[0];
+      const location = firstResult.geometry || {};
+
+      res.json({
+        success: true,
+        data: {
+          address: firstResult.formatted,
+          placeId: `${location.lat},${location.lng}`,
+          location: {
+            lat: location.lat,
+            lng: location.lng
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Search places for pickup/destination input
+  async searchPlaces(req, res, next) {
+    try {
+      const { input, lat, lng } = req.query;
+
+      if (!input || input.trim().length < 2) {
+        return res.json({
+          success: true,
+          data: {
+            places: []
+          }
+        });
+      }
+
+      const apiKey = process.env.OPENCAGE_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({
+          success: false,
+          message: 'Geocoding API key is not configured on server'
+        });
+      }
+
+      const params = new URLSearchParams({
+        q: input.trim(),
+        key: apiKey,
+        limit: '6',
+        countrycode: 'in'
+      });
+
+      const latitude = Number(lat);
+      const longitude = Number(lng);
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        params.append('proximity', `${longitude},${latitude}`);
+      }
+
+      const url = `${OPENCAGE_GEOCODE_BASE_URL}?${params.toString()}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (!Array.isArray(data.results)) {
+        return res.status(400).json({
+          success: false,
+          message: data.status?.message || 'Unable to search places'
+        });
+      }
+
+      const places = data.results.map((result) => {
+        const formatted = result.formatted || '';
+        const geometry = result.geometry || {};
+        const parts = formatted.split(',').map((part) => part.trim());
+        const title = parts[0] || formatted;
+        const subtitle = parts.slice(1).join(', ');
+
+        return {
+          placeId: `${geometry.lat},${geometry.lng}`,
+          title,
+          subtitle,
+          description: formatted,
+          location: {
+            lat: geometry.lat,
+            lng: geometry.lng
+          }
+        };
+      });
+
+      res.json({
+        success: true,
+        data: {
+          places
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get exact coordinates for selected place
+  async getPlaceDetails(req, res, next) {
+    try {
+      const { placeId } = req.query;
+
+      if (!placeId) {
+        return res.status(400).json({
+          success: false,
+          message: 'placeId query param is required'
+        });
+      }
+
+      const [latStr, lngStr] = placeId.split(',');
+      const lat = Number(latStr);
+      const lng = Number(lngStr);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid placeId format'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          placeId,
+          location: {
+            lat,
+            lng
+          }
+        }
       });
     } catch (error) {
       next(error);
@@ -431,6 +624,12 @@ class RequestController {
       if (updateData.date) {
         updateData.date = new Date(updateData.date);
       }
+
+      ['pickupLat', 'pickupLng', 'destinationLat', 'destinationLng'].forEach((field) => {
+        if (updateData[field] !== undefined && updateData[field] !== null) {
+          updateData[field] = Number(updateData[field]);
+        }
+      });
 
       const updatedRequest = await prisma.request.update({
         where: { id },

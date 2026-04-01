@@ -42,10 +42,18 @@ const ProfileScreen = () => {
   // Fetch user profile when screen is focused
   useFocusEffect(
     React.useCallback(() => {
+      const loadProfileData = async () => {
+        try {
+          await testBackendConnection();
+          await fetchUserProfile();
+          await fetchUserStats();
+        } catch (error) {
+          console.log('❌ Failed to load profile data on focus:', error?.message);
+        }
+      };
+
       console.log('📱 ProfileScreen focused - fetching latest data...');
-      testBackendConnection();
-      fetchUserProfile();
-      fetchUserStats();
+      loadProfileData();
     }, [])
   );
 
@@ -58,8 +66,8 @@ const ProfileScreen = () => {
         console.log('🎯 Connected to:', result.url);
       } else {
         console.log('❌ Backend connection failed for ProfileScreen');
-        console.log('🔍 Tested URLs: http://10.63.209.138:3001, http://10.176.254.138:3001, http://localhost:3001');
-        console.log('💡 Make sure backend server is running on port 3001');
+        console.log('🔍 Tested dynamic backend URLs from current environment');
+        console.log('💡 Make sure backend server is running and reachable from this device');
       }
     } catch (error) {
       console.log('❌ ProfileScreen connection test error:', error.message);
@@ -134,7 +142,7 @@ const ProfileScreen = () => {
       // Show specific error message based on the type of error
       let errorMessage = 'Unable to load profile.';
       if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
-        errorMessage = 'Backend server not reachable. Make sure server is running on port 3001.';
+        errorMessage = 'Backend server not reachable. Make sure the server is running and reachable from this device.';
       } else if (error.response?.status === 404) {
         errorMessage = 'User profile not found in database.';
       } else if (error.response?.status === 401) {
@@ -494,7 +502,7 @@ const ProfileScreen = () => {
                 >
                   <Text style={styles.retryText}>🔄 Retry Connection</Text>
                   <Text style={styles.errorInfo}>
-                    Backend server should be running on port 3001
+                    Backend server should be running and reachable from this device
                   </Text>
                 </TouchableOpacity>
               )}

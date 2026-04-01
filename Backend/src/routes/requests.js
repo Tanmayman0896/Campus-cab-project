@@ -7,6 +7,9 @@ const reqCtrl = require('../controllers/requestController');
 router.post('/', reqCtrl.createRequest);
 router.put('/:id', reqCtrl.updateRequest);
 router.delete('/:id', reqCtrl.deleteRequest);
+router.get('/geocode/reverse', reqCtrl.reverseGeocode);
+router.get('/geocode/search', reqCtrl.searchPlaces);
+router.get('/geocode/place', reqCtrl.getPlaceDetails);
 /**
  * GET /requests/search - Find rides
  */

@@ -15,12 +15,19 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Campus Cab uses your location to pick your current pickup point on the map."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#000000"
-      }
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "webpack"
