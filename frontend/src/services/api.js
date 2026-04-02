@@ -46,7 +46,7 @@ const getCandidateBaseUrls = () => {
 
   const envHost = process.env.EXPO_PUBLIC_API_HOST;
   const explicitPort = Number(process.env.EXPO_PUBLIC_API_PORT);
-  const fallbackPorts = [3001, 3000, 3002, 3003, 3004, 3005];
+  const fallbackPorts = [3001];
   const ports = Number.isInteger(explicitPort)
     ? [explicitPort, ...fallbackPorts.filter((port) => port !== explicitPort)]
     : fallbackPorts;

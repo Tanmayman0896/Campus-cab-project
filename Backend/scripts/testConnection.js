@@ -2,8 +2,8 @@ async function testBackendConnection() {
   const testUrls = [
     'http://localhost:3000/api/v1/requests/all',
     'http://localhost:3001/api/v1/requests/all',
-    'http://172.31.3.138:3000/api/v1/requests/all',
-    'http://172.31.3.138:3001/api/v1/requests/all'
+    'http://192.168.70.138:3000/api/v1/requests/all',
+    'http://192.168.70.138:3001/api/v1/requests/all'
   ];
   
   console.log('🔍 Testing backend connectivity...');

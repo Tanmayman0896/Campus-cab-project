@@ -1,5 +1,14 @@
 const { PrismaClient } = require('@prisma/client');
 
+const REQUEST_LOCATION_FIELDS = [
+  'pickupAddress',
+  'pickupLat',
+  'pickupLng',
+  'destinationAddress',
+  'destinationLat',
+  'destinationLng'
+];
+
 // Initialize Prisma Client with improved configuration
 const prisma = new PrismaClient({
   log: ['error', 'warn'], // Reduce logging to avoid spam
@@ -129,6 +138,46 @@ const createRetryWrapper = (operation) => {
   };
 };
 
+const stripUnsupportedRequestLocationFields = (args) => {
+  if (!args || typeof args !== 'object' || !args.data || typeof args.data !== 'object') {
+    return args;
+  }
+
+  const sanitizedData = { ...args.data };
+  REQUEST_LOCATION_FIELDS.forEach((field) => {
+    if (field in sanitizedData) {
+      delete sanitizedData[field];
+    }
+  });
+
+  return {
+    ...args,
+    data: sanitizedData
+  };
+};
+
+const createRequestOperationWrapper = (operation) => {
+  const retryWrappedOperation = createRetryWrapper(operation);
+
+  return async (args) => {
+    try {
+      return await retryWrappedOperation(args);
+    } catch (error) {
+      const message = error?.message || '';
+      const isUnknownArg = message.includes('Unknown argument');
+      const hasLocationField = REQUEST_LOCATION_FIELDS.some((field) => message.includes(field));
+
+      if (!isUnknownArg || !hasLocationField) {
+        throw error;
+      }
+
+      console.warn('⚠️ Retrying request operation without unsupported location fields');
+      const sanitizedArgs = stripUnsupportedRequestLocationFields(args);
+      return retryWrappedOperation(sanitizedArgs);
+    }
+  };
+};
+
 // Wrap common prisma operations with retry logic
 const enhancedPrisma = {
   ...prisma,
@@ -144,8 +193,8 @@ const enhancedPrisma = {
     ...prisma.request,
     findMany: createRetryWrapper(prisma.request.findMany.bind(prisma.request)),
     findUnique: createRetryWrapper(prisma.request.findUnique.bind(prisma.request)),
-    create: createRetryWrapper(prisma.request.create.bind(prisma.request)),
-    update: createRetryWrapper(prisma.request.update.bind(prisma.request)),
+    create: createRequestOperationWrapper(prisma.request.create.bind(prisma.request)),
+    update: createRequestOperationWrapper(prisma.request.update.bind(prisma.request)),
     delete: createRetryWrapper(prisma.request.delete.bind(prisma.request)),
     count: createRetryWrapper(prisma.request.count.bind(prisma.request)),
   },

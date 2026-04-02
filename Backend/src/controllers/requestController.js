@@ -2,6 +2,73 @@ const prisma = require('../config/prisma');
 const moment = require('moment');
 
 const OPENCAGE_GEOCODE_BASE_URL = 'https://api.opencagedata.com/geocode/v1/json';
+const GOOGLE_GEOCODE_BASE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
+const GOOGLE_PLACES_AUTOCOMPLETE_BASE_URL = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
+const GOOGLE_PLACES_DETAILS_BASE_URL = 'https://maps.googleapis.com/maps/api/place/details/json';
+const LEGACY_UNSUPPORTED_REQUEST_FIELDS = [
+  'pickupAddress',
+  'pickupLat',
+  'pickupLng',
+  'destinationAddress',
+  'destinationLat',
+  'destinationLng'
+];
+
+const isUnknownArgumentError = (error) => {
+  const message = error?.message || '';
+  return message.includes('Unknown argument');
+};
+
+const stripLegacyUnsupportedFields = (data) => {
+  const nextData = { ...data };
+  LEGACY_UNSUPPORTED_REQUEST_FIELDS.forEach((field) => {
+    if (field in nextData) {
+      delete nextData[field];
+    }
+  });
+  return nextData;
+};
+
+const buildCoordinateFallback = (latitude, longitude) => ({
+  address: `Pinned location (${latitude.toFixed(6)}, ${longitude.toFixed(6)})`,
+  placeId: `${latitude},${longitude}`,
+  location: {
+    lat: latitude,
+    lng: longitude
+  }
+});
+
+const fetchGooglePlaceDetails = async (placeId, apiKey) => {
+  const detailsParams = new URLSearchParams({
+    place_id: placeId,
+    key: apiKey,
+    fields: 'place_id,formatted_address,name,geometry'
+  });
+
+  const detailsUrl = `${GOOGLE_PLACES_DETAILS_BASE_URL}?${detailsParams.toString()}`;
+  const detailsResponse = await fetch(detailsUrl);
+  const detailsData = await detailsResponse.json();
+
+  if (detailsData.status !== 'OK' || !detailsData.result) {
+    return null;
+  }
+
+  const result = detailsData.result;
+  const location = result.geometry?.location || {};
+  const formatted = result.formatted_address || result.name || '';
+  const parts = formatted.split(',').map((part) => part.trim());
+
+  return {
+    placeId: result.place_id || placeId,
+    title: result.name || parts[0] || formatted,
+    subtitle: parts.slice(1).join(', '),
+    description: formatted,
+    location: {
+      lat: location.lat,
+      lng: location.lng
+    }
+  };
+};
 
 class RequestController {
   // When a student wants to create a new ride request
@@ -43,35 +110,52 @@ class RequestController {
       console.log('  - Date will be stored as:', requestDate.toISOString());
 
       // Create the new request with the student as the first occupant
-      const newRequest = await prisma.request.create({
-        data: {
-          userId,
-          from,
-          to,
-          pickupAddress,
-          pickupLat: pickupLat !== undefined ? Number(pickupLat) : null,
-          pickupLng: pickupLng !== undefined ? Number(pickupLng) : null,
-          destinationAddress,
-          destinationLat: destinationLat !== undefined ? Number(destinationLat) : null,
-          destinationLng: destinationLng !== undefined ? Number(destinationLng) : null,
-          date: requestDate,
-          time,
-          carType,
-          maxPersons,
-          currentOccupancy: 1 // The person creating is already in
+      const createData = {
+        userId,
+        from,
+        to,
+        pickupAddress,
+        pickupLat: pickupLat !== undefined ? Number(pickupLat) : null,
+        pickupLng: pickupLng !== undefined ? Number(pickupLng) : null,
+        destinationAddress,
+        destinationLat: destinationLat !== undefined ? Number(destinationLat) : null,
+        destinationLng: destinationLng !== undefined ? Number(destinationLng) : null,
+        date: requestDate,
+        time,
+        carType,
+        maxPersons,
+        currentOccupancy: 1 // The person creating is already in
+      };
+
+      const include = {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true
+          }
         },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true
-            }
-          },
-          votes: true
+        votes: true
+      };
+
+      let newRequest;
+      try {
+        newRequest = await prisma.request.create({
+          data: createData,
+          include
+        });
+      } catch (error) {
+        if (!isUnknownArgumentError(error)) {
+          throw error;
         }
-      });
+
+        const fallbackData = stripLegacyUnsupportedFields(createData);
+        newRequest = await prisma.request.create({
+          data: fallbackData,
+          include
+        });
+      }
 
       res.status(201).json({
         success: true,
@@ -97,17 +181,54 @@ class RequestController {
         });
       }
 
-      const apiKey = process.env.OPENCAGE_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
-      if (!apiKey) {
-        return res.status(500).json({
-          success: false,
-          message: 'Geocoding API key is not configured on server'
+      const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
+      const opencageApiKey = process.env.OPENCAGE_API_KEY;
+
+      if (!googleApiKey && !opencageApiKey) {
+        return res.json({
+          success: true,
+          data: buildCoordinateFallback(latitude, longitude)
         });
+      }
+
+      if (googleApiKey) {
+        const googleParams = new URLSearchParams({
+          latlng: `${latitude},${longitude}`,
+          key: googleApiKey
+        });
+
+        const googleUrl = `${GOOGLE_GEOCODE_BASE_URL}?${googleParams.toString()}`;
+        const googleResponse = await fetch(googleUrl);
+        const googleData = await googleResponse.json();
+
+        if (googleData.results?.length && googleData.status === 'OK') {
+          const firstResult = googleData.results[0];
+          const location = firstResult.geometry?.location || {};
+
+          return res.json({
+            success: true,
+            data: {
+              address: firstResult.formatted_address,
+              placeId: firstResult.place_id,
+              location: {
+                lat: location.lat,
+                lng: location.lng
+              }
+            }
+          });
+        }
+
+        if (!opencageApiKey) {
+          return res.json({
+            success: true,
+            data: buildCoordinateFallback(latitude, longitude)
+          });
+        }
       }
 
       const params = new URLSearchParams({
         q: `${latitude},${longitude}`,
-        key: apiKey,
+        key: opencageApiKey,
         limit: '1'
       });
 
@@ -116,9 +237,9 @@ class RequestController {
       const data = await response.json();
 
       if (!data.results?.length) {
-        return res.status(400).json({
-          success: false,
-          message: 'Unable to reverse geocode this location'
+        return res.json({
+          success: true,
+          data: buildCoordinateFallback(latitude, longitude)
         });
       }
 
@@ -155,23 +276,70 @@ class RequestController {
         });
       }
 
-      const apiKey = process.env.OPENCAGE_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
-      if (!apiKey) {
-        return res.status(500).json({
-          success: false,
-          message: 'Geocoding API key is not configured on server'
+      const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
+      const opencageApiKey = process.env.OPENCAGE_API_KEY;
+
+      if (!googleApiKey && !opencageApiKey) {
+        return res.json({
+          success: true,
+          data: {
+            places: []
+          }
         });
+      }
+
+      const latitude = Number(lat);
+      const longitude = Number(lng);
+
+      if (googleApiKey) {
+        const googleParams = new URLSearchParams({
+          input: input.trim(),
+          key: googleApiKey,
+          components: 'country:in'
+        });
+
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          googleParams.append('location', `${latitude},${longitude}`);
+          googleParams.append('radius', '50000');
+        }
+
+        const googleUrl = `${GOOGLE_PLACES_AUTOCOMPLETE_BASE_URL}?${googleParams.toString()}`;
+        const googleResponse = await fetch(googleUrl);
+        const googleData = await googleResponse.json();
+
+        if (!Array.isArray(googleData.predictions) || googleData.status !== 'OK') {
+          if (!opencageApiKey) {
+            return res.json({
+              success: true,
+              data: {
+                places: []
+              }
+            });
+          }
+        } else {
+          const limitedPredictions = googleData.predictions.slice(0, 6);
+          const places = await Promise.all(
+            limitedPredictions.map((prediction) =>
+              fetchGooglePlaceDetails(prediction.place_id, googleApiKey)
+            )
+          );
+
+          return res.json({
+            success: true,
+            data: {
+              places: places.filter(Boolean)
+            }
+          });
+        }
       }
 
       const params = new URLSearchParams({
         q: input.trim(),
-        key: apiKey,
+        key: opencageApiKey,
         limit: '6',
         countrycode: 'in'
       });
 
-      const latitude = Number(lat);
-      const longitude = Number(lng);
       if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
         params.append('proximity', `${longitude},${latitude}`);
       }
@@ -181,9 +349,11 @@ class RequestController {
       const data = await response.json();
 
       if (!Array.isArray(data.results)) {
-        return res.status(400).json({
-          success: false,
-          message: data.status?.message || 'Unable to search places'
+        return res.json({
+          success: true,
+          data: {
+            places: []
+          }
         });
       }
 
@@ -226,6 +396,26 @@ class RequestController {
         return res.status(400).json({
           success: false,
           message: 'placeId query param is required'
+        });
+      }
+
+      const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
+
+      if (googleApiKey && !placeId.includes(',')) {
+        const place = await fetchGooglePlaceDetails(placeId, googleApiKey);
+        if (!place) {
+          return res.status(400).json({
+            success: false,
+            message: 'Unable to fetch place details'
+          });
+        }
+
+        return res.json({
+          success: true,
+          data: {
+            placeId: place.placeId,
+            location: place.location
+          }
         });
       }
 
@@ -631,21 +821,37 @@ class RequestController {
         }
       });
 
-      const updatedRequest = await prisma.request.update({
-        where: { id },
-        data: updateData,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true
-            }
-          },
-          votes: true
+      const include = {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true
+          }
+        },
+        votes: true
+      };
+
+      let updatedRequest;
+      try {
+        updatedRequest = await prisma.request.update({
+          where: { id },
+          data: updateData,
+          include
+        });
+      } catch (error) {
+        if (!isUnknownArgumentError(error)) {
+          throw error;
         }
-      });
+
+        const fallbackUpdateData = stripLegacyUnsupportedFields(updateData);
+        updatedRequest = await prisma.request.update({
+          where: { id },
+          data: fallbackUpdateData,
+          include
+        });
+      }
 
       res.json({
         success: true,

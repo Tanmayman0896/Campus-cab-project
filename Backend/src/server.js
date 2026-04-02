@@ -3,6 +3,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const prisma = require('./config/prisma');
 const app = express();
 
 app.use(express.json());
@@ -36,12 +37,12 @@ class RideShareServer {
             'http://localhost:19006',        // Expo web
             'http://localhost:8081',         // Expo Metro bundler
             'http://localhost:8082',         // Expo Metro bundler (alt port)
-            'http://172.31.3.1388:8081',    // Expo device IP (current)
-            'http://172.31.3.138:8082',    // Expo device IP (alt port)
+            'http://192.168.70.138:8081',    // Expo device IP (current)
+            'http://192.168.70.138:8082',    // Expo device IP (alt port)
             'exp://localhost:8081',          // Expo app protocol
             'exp://localhost:8082',          // Expo app protocol (alt port)
-            'exp://172.31.3.138:8081',     // Expo device protocol (current)
-            'exp://172.31.3.138:8082',     // Expo device protocol (alt port)
+            'exp://192.168.70.138:8081',     // Expo device protocol (current)
+            'exp://192.168.70.138:8082',     // Expo device protocol (alt port)
           ],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -100,13 +101,39 @@ class RideShareServer {
     });
 
     // Mock authentication middleware (temporary for development)
-    this.app.use(this.apiBasePath, (req, res, next) => {
+    this.app.use(this.apiBasePath, async (req, res, next) => {
       // Mock user for development - in production this would be real authentication
       req.user = {
         id: 'a1234567-1234-1234-1234-123456789abc',
         name: 'Tanmay',
-        email: 'tanmay@example.com'
+        email: 'tanmay@example.com',
+        role: 'student'
       };
+
+      try {
+        await prisma.user.upsert({
+          where: { id: req.user.id },
+          update: {
+            name: req.user.name,
+            email: req.user.email,
+            role: req.user.role,
+            phone: '+91 9876543210'
+          },
+          create: {
+            id: req.user.id,
+            name: 'Tanmay',
+            email: req.user.email,
+            role: req.user.role,
+            phone: '+91 9876543210',
+            year: 3,
+            course: 'Computer Science',
+            gender: 'Male'
+          }
+        });
+      } catch (error) {
+        console.error('Failed to ensure mock user exists:', error.message);
+      }
+
       next();
     });
 

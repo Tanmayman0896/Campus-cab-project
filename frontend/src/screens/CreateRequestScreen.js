@@ -16,12 +16,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { requestAPI } from '../services/api';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
 
 const DEFAULT_REGION = {
-  latitude: 26.8432,
-  longitude: 75.5669,
+  latitude: 26.9124,
+  longitude: 75.7873,
   latitudeDelta: 0.008,
   longitudeDelta: 0.008,
 };
@@ -71,25 +71,38 @@ const CreateRequestScreen = () => {
   }, [startingPoint, destination, searchMode]);
 
   const canSubmit = useMemo(() => {
+    const hasDestination = Boolean(selectedDestination || destination.trim().length > 0);
+
     return Boolean(
       pickupConfirmed &&
         selectedPickup &&
-        selectedDestination &&
+        hasDestination &&
         selectedDate &&
         selectedTime
     );
-  }, [pickupConfirmed, selectedPickup, selectedDestination, selectedDate, selectedTime]);
+  }, [pickupConfirmed, selectedPickup, selectedDestination, destination, selectedDate, selectedTime]);
+
+  const applyFallbackLocation = async () => {
+    setRegion(DEFAULT_REGION);
+    setMarkerCoordinate({
+      latitude: DEFAULT_REGION.latitude,
+      longitude: DEFAULT_REGION.longitude,
+    });
+    await resolveAddress(DEFAULT_REGION.latitude, DEFAULT_REGION.longitude, false);
+  };
 
   const loadCurrentLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Location Permission', 'Please allow location permission to auto-detect your pickup.');
+        Alert.alert('Location Permission', 'Using default Jaipur location because device location is unavailable.');
+        await applyFallbackLocation();
         return;
       }
 
       const current = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
+        maximumAge: 10000,
       });
 
       const lat = current.coords.latitude;
@@ -107,6 +120,7 @@ const CreateRequestScreen = () => {
       await resolveAddress(lat, lng, false);
     } catch (error) {
       console.log('Failed to load current location:', error.message);
+      await applyFallbackLocation();
     }
   };
 
@@ -201,6 +215,14 @@ const CreateRequestScreen = () => {
   };
 
   const handleSubmit = async () => {
+    const resolvedDestination = selectedDestination || (destination.trim().length > 0
+      ? {
+          address: destination.trim(),
+          lat: markerCoordinate.latitude,
+          lng: markerCoordinate.longitude,
+        }
+      : null);
+
     if (!canSubmit) {
       Alert.alert('Error', 'Please confirm pickup, destination, date and time before creating request.');
       return;
@@ -211,13 +233,7 @@ const CreateRequestScreen = () => {
     try {
       const requestData = {
         from: selectedPickup.address,
-        to: selectedDestination.address,
-        pickupAddress: selectedPickup.address,
-        pickupLat: selectedPickup.lat,
-        pickupLng: selectedPickup.lng,
-        destinationAddress: selectedDestination.address,
-        destinationLat: selectedDestination.lat,
-        destinationLng: selectedDestination.lng,
+        to: resolvedDestination.address,
         date: selectedDate.toISOString().split('T')[0], // Format: YYYY-MM-DD
         time: selectedTime.toTimeString().split(' ')[0].substring(0, 5), // Format: HH:MM
         maxPersons: passengers,
@@ -281,6 +297,7 @@ const CreateRequestScreen = () => {
         <MapView
           style={styles.map}
           region={region}
+          mapType={Platform.OS === 'android' ? 'none' : 'standard'}
           onRegionChangeComplete={(nextRegion) => {
             setRegion(nextRegion);
             setMarkerCoordinate({
@@ -301,6 +318,13 @@ const CreateRequestScreen = () => {
             resolveAddress(lat, lng, false);
           }}
         >
+          {Platform.OS === 'android' && (
+            <UrlTile
+              urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+              maximumZ={19}
+              flipY={false}
+            />
+          )}
           <Marker coordinate={markerCoordinate} pinColor="#7ED957" />
         </MapView>
 
